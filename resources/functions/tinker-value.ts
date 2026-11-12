@@ -36,6 +36,15 @@ export function renderTinkerValue(value: Described, indent = ''): string {
       const entries = (value.entries as Array<[Described, Described]>).map(([key, item]) => `${inner}${renderTinkerValue(key, inner)} => ${renderTinkerValue(item, inner)}`)
       return entries.length ? `Map(${value.size}) {\n${list(entries, value.more).join(',\n')}\n${indent}}` : 'Map(0) {}'
     }
+    case 'html': return `[${value.kind}${value.title ? ` ${value.title}` : ''}: ${String(value.html).length} characters of markup]`
+    case 'model': {
+      const entries = (value.attributes as Array<[string, Described]>).map(([key, item]) => `${inner}${key}: ${renderTinkerValue(item, inner)}`)
+      for (const name of (value.hidden as string[] | undefined) ?? [])
+        entries.push(`${inner}${name}: [hidden]`)
+      for (const [name, item] of (value.loaded as Array<[string, Described]> | undefined) ?? [])
+        entries.push(`${inner}${name}: ${renderTinkerValue(item, inner)}`)
+      return `${value.model} {\n${list(entries, value.more).join(',\n')}\n${indent}}`
+    }
     case 'object': {
       const entries = (value.entries as Array<[string, Described]>).map(([key, item]) => `${inner}${key}: ${renderTinkerValue(item, inner)}`)
       const name = value.ctor ? `${value.ctor} ` : ''

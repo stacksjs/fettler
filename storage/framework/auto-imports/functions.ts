@@ -2,6 +2,8 @@
 
 export { increment, decrement, reset, count } from '../../../resources/functions/counter'
 export { isDark, preferredDark, toggleDark } from '../../../resources/functions/dark'
+export { fuzzyScore, fuzzyFilter } from '../../../resources/functions/fuzzy'
+export { renderTinkerValue } from '../../../resources/functions/tinker-value'
 export { fetchWebAnalytics, fetchSalesAnalytics, fetchCampaignAnalytics, fetchEventAnalytics, recordAnalyticsEvent, useAnalytics } from '@stacksjs/defaults/functions/analytics.ts'
 export type { AnalyticsOverview, TrafficDataPoint, PageData, ReferrerData, DeviceData, BrowserData, CountryData, AnalyticsRange, AnalyticsScope, WebAnalyticsResponse, SalesAnalyticsResponse, CampaignAnalyticsResponse, EventAnalyticsResponse, RecordAnalyticsEventInput } from '@stacksjs/defaults/functions/analytics.ts'
 export { resolveApiBaseUrl } from '@stacksjs/defaults/functions/api-url.ts'

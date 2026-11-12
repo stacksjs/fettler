@@ -17,6 +17,9 @@ declare global {
   const isDark: typeof autoImports.isDark
   const preferredDark: typeof autoImports.preferredDark
   const toggleDark: typeof autoImports.toggleDark
+  const fuzzyScore: typeof autoImports.fuzzyScore
+  const fuzzyFilter: typeof autoImports.fuzzyFilter
+  const renderTinkerValue: typeof autoImports.renderTinkerValue
 }
 
 export {}
