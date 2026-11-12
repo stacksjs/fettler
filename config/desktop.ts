@@ -37,6 +37,13 @@ export default {
       feedUrl: `${origin}/api/updates`,
       publicKeys: { main: 'ed25519-public:MCowBQYDK2VwAyEAlJQdc7QeXJPeFKtsh2MkL12IDft7emqNu8vpOz-8bIQ' },
     },
+    // Craft's own binary for the platforms this Mac cannot supply: `bun bin/desktop-runtimes.ts` fetches them.
+    runtime: {
+      'linux-x64': 'storage/framework/desktop/runtimes/linux-x64/craft',
+      'win32-x64': 'storage/framework/desktop/runtimes/win32-x64/craft.exe',
+    },
+    // The web view's loader has to sit beside the executable on Windows.
+    windows: { additionalFiles: ['storage/framework/desktop/runtimes/win32-x64/WebView2Loader.dll'] },
     linux: { categories: ['Development'] },
   },
 } satisfies DesktopConfig

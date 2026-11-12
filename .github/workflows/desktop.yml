@@ -1,0 +1,140 @@
+name: Desktop
+
+# Builds the Linux and Windows desktop apps and their installers. The Mac
+# build, every signature and the release itself stay on the releasing machine:
+# this workflow holds no signing key and publishes nothing. A release downloads
+# these artifacts and runs `buddy release:desktop --skip-build` over them.
+
+on:
+  workflow_dispatch:
+  push:
+    tags:
+      - 'v*'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: desktop-${{ github.sha }}
+  cancel-in-progress: false
+
+jobs:
+  linux:
+    name: Linux app and Windows executables
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Setup Pantry
+        uses: pantry-pm/pantry/packages/action@cdb82193cb344c2b881a88ea79f88243f5522e0f # v0.11.75
+        with:
+          install: 'false'
+
+      - name: Use cached node_modules
+        uses: actions/cache@v4
+        with:
+          path: node_modules
+          key: node-modules-${{ hashFiles('**/bun.lock') }}
+          restore-keys: |
+            node-modules-
+
+      - name: Install Dependencies
+        run: bun install --frozen-lockfile
+
+      - name: Fetch the Craft runtimes
+        run: bun bin/desktop-runtimes.ts
+
+      - name: Install the Linux packaging tools
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq rpm
+          curl -fsSL -o appimagetool https://github.com/AppImage/appimagetool/releases/download/1.9.1/appimagetool-x86_64.AppImage
+          echo "ed4ce84f0d9caff66f50bcca6ff6f35aae54ce8135408b3fa33abfc3cb384eb0  appimagetool" | sha256sum --check
+          chmod +x appimagetool
+          sudo mv appimagetool /usr/local/bin/appimagetool
+
+      - name: Check the address
+        env:
+          APP_URL: ${{ vars.APP_URL }}
+        # Without it the app would be built asking this runner for its updates.
+        run: |
+          case "$APP_URL" in https://*) echo "Building for $APP_URL" ;; *) echo "Set the APP_URL repository variable to the public address." >&2; exit 1 ;; esac
+
+      - name: Build
+        env:
+          CRAFT_BIN: ${{ github.workspace }}/storage/framework/desktop/runtimes/linux-x64/craft
+          # A runner has no FUSE: the packaging tool unpacks itself and runs.
+          APPIMAGE_EXTRACT_AND_RUN: '1'
+          # The address is public; the rest of the production settings never reach CI.
+          APP_URL: ${{ vars.APP_URL }}
+        run: bun buddy build:desktop --target linux-x64,win32-x64 --package
+
+      - name: List what was built
+        run: find storage/framework/desktop/webview -maxdepth 3 -type f -not -path '*/.build/*' | sort
+
+      - name: Upload the Linux app
+        uses: actions/upload-artifact@v4
+        with:
+          name: desktop-linux-x64
+          path: storage/framework/desktop/webview/linux-x64
+          if-no-files-found: error
+
+      - name: Upload the Windows executables
+        uses: actions/upload-artifact@v4
+        with:
+          name: desktop-win32-x64-unpackaged
+          path: storage/framework/desktop/webview/win32-x64
+          if-no-files-found: error
+
+      - name: Upload the build record
+        uses: actions/upload-artifact@v4
+        with:
+          name: desktop-build-record
+          path: storage/framework/desktop/webview/build.json
+          if-no-files-found: error
+
+  windows:
+    name: Windows installer
+    needs: linux
+    runs-on: windows-latest
+
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@v2
+
+      - name: Download the Windows executables
+        uses: actions/download-artifact@v4
+        with:
+          name: desktop-win32-x64-unpackaged
+          path: desktop
+
+      # Only the packager is installed, at the version the project pins: the
+      # app itself was compiled on the Linux runner.
+      - name: Install the packager
+        shell: bash
+        # The same Craft release bin/desktop-runtimes.ts pins.
+        run: |
+          mkdir packager && cp bin/package-desktop.ts packager/
+          cd packager && bun init -y >/dev/null && bun add craft-native@0.0.499
+
+      - name: Make the MSI
+        shell: bash
+        run: |
+          export PATH="$PATH:$(cygpath "$WIX")bin"
+          cd packager && bun package-desktop.ts ../desktop
+
+      - name: List what was made
+        shell: bash
+        run: find desktop -type f | sort
+
+      - name: Upload the Windows app
+        uses: actions/upload-artifact@v4
+        with:
+          name: desktop-win32-x64
+          path: desktop
+          if-no-files-found: error
