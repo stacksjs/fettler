@@ -267,6 +267,8 @@ async function loadState() {
   const body = await response.json()
   connection.set(body.connection)
   recent.set(body.recent || [])
+  if (body.note && !notice()) notice.set(body.note)
+  if (body.connection && body.connection.path && !projectPath()) projectPath.set(body.connection.kind === 'local' ? body.connection.path : '')
 }
 
 function firstLine(text) {

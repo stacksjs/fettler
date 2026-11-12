@@ -61,7 +61,7 @@ function json(body: unknown, status = 200): Response {
   return new Response(JSON.stringify(body), { status, headers: { 'content-type': 'application/json', 'cache-control': 'no-store' } })
 }
 
-export async function startAgent(options: { port?: number, quiet?: boolean, storePath?: string, secrets?: SecretStore } = {}): Promise<AgentHandle> {
+export async function startAgent(options: { port?: number, quiet?: boolean, storePath?: string, secrets?: SecretStore, open?: Connection } = {}): Promise<AgentHandle> {
   const store = new Store(options.storePath)
   const secrets = options.secrets ?? keychain
   const assistant = new Assistant(store, secrets)
@@ -82,6 +82,7 @@ export async function startAgent(options: { port?: number, quiet?: boolean, stor
   let language: LanguageService | undefined
   let environmentOf = ''
   let driverNote = ''
+  let startupNote = ''
   let driverName = ''
   // The connected app's models, asked for once per connection: names for the assistant, never rows.
   let models: ModelSummary[] = []
@@ -188,6 +189,8 @@ export async function startAgent(options: { port?: number, quiet?: boolean, stor
         running: Boolean(runner?.running),
         platform: process.platform,
         recent: store.recentConnections(),
+        // Said once: why the project named on the command line did not open.
+        note: startupNote,
       })
     }
 
@@ -503,6 +506,15 @@ export async function startAgent(options: { port?: number, quiet?: boolean, stor
       await Bun.sleep(50)
     }
   }
+
+  // Started with a project to open (`fettler ./my-app`): connect before the window asks.
+  let openError = ''
+  if (options.open) {
+    await openConnection(options.open).catch((error) => {
+      openError = error instanceof Error ? error.message : String(error)
+    })
+  }
+  startupNote = openError
 
   return {
     url: `http://127.0.0.1:${port}/?session=${token}`,

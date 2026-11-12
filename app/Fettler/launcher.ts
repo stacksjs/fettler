@@ -1,4 +1,5 @@
 import { existsSync } from 'node:fs'
+import { resolve } from 'node:path'
 import process from 'node:process'
 import { startAgent } from './agent'
 
@@ -23,7 +24,9 @@ function craftBinary(): string {
   throw new Error('No Craft binary found. Set CRAFT_BIN to one, or install craft on the PATH.')
 }
 
-const agent = await startAgent()
+// `fettler` opens the last state; `fettler <path>` opens that project.
+const argument = process.argv.slice(2).find(value => !value.startsWith('-'))
+const agent = await startAgent(argument ? { open: { kind: 'local', path: resolve(process.cwd(), argument) } } : {})
 const craft = Bun.spawn([
   craftBinary(),
   '--url',
