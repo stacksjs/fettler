@@ -125,10 +125,8 @@ export async function commandFor(connection: Connection): Promise<RunnerCommand>
   if (connection.kind === 'kube')
     return kubeCommand(connection)
   if (connection.kind === 'sandbox') {
-    return {
-      command: [process.execPath, join(import.meta.dir, 'sandbox-entry.ts')],
-      cwd: sandboxDirectory(),
-    }
+    // The same loader a project gets, with no project behind it, so the built app needs no source file to start one.
+    return localCommand({ directory: sandboxDirectory(), boot: false, bun: process.execPath })
   }
 
   const root = resolve(connection.path)

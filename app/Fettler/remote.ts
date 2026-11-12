@@ -1,5 +1,6 @@
 import type { RunnerCommand } from './runner'
 import { join } from 'node:path'
+import { RUNNER_BUNDLE } from './runner-bundle'
 
 /**
  * Running a session somewhere this machine can only reach through a pipe: a
@@ -19,29 +20,51 @@ import { join } from 'node:path'
  */
 export const STDIN_LOADER = '(async()=>{const r=Bun.stdin.stream().getReader();let b=new Uint8Array(0);const more=async()=>{const{value:v,done:d}=await r.read();if(d)return false;const n=new Uint8Array(b.length+v.length);n.set(b);n.set(v,b.length);b=n;return true};let i;while((i=b.indexOf(10))<0)if(!await more())process.exit(64);const len=+new TextDecoder().decode(b.subarray(0,i));b=b.subarray(i+1);while(b.length<len)if(!await more())process.exit(65);const code=new TextDecoder().decode(b.subarray(0,len));const rest=b.subarray(len);const f=(0,eval)(code);if(typeof f==="function")f({},require,{exports:{}},"","");const input=(async function*(){if(rest.length)yield rest;for(;;){const{value:v,done:d}=await r.read();if(d)return;yield v}})();const{ok}=await globalThis.__fettlerServe({input,boot:process.env.FETTLER_BOOT!=="0"});process.exit(ok?0:1)})()'
 
-let bundle: Promise<Uint8Array> | undefined
+/** The packages a runner leaves to the target project's own install; only the session engine travels. */
+const RUNNER_EXTERNALS = ['@stacksjs/config', '@stacksjs/server', '@stacksjs/logging', '@stacksjs/query-builder', '@stacksjs/email']
+
+/**
+ * What the committed runner was built from: the entry file and the installed
+ * session engine's version. A test compares this with the stamp in
+ * `runner-bundle.ts`, so an upgrade that forgets to rebuild the runner fails
+ * there instead of shipping an old engine.
+ */
+export async function runnerInputs(): Promise<string> {
+  const entry = await Bun.file(join(import.meta.dir, 'remote-runner-entry.ts')).text()
+  const engine = await Bun.file(Bun.resolveSync('@stacksjs/tinker/package.json', import.meta.dir)).json() as { version: string }
+  return `tinker@${engine.version} entry:${Bun.hash(entry).toString(16)}`
+}
+
+/**
+ * Bundle the runner from source. Only `build-runner.ts` calls this: the built
+ * app has no source files and no bundler to spare, so it carries the result in
+ * `runner-bundle.ts`.
+ */
+export async function buildRunnerBundle(): Promise<string> {
+  const built = await Bun.build({
+    entrypoints: [join(import.meta.dir, 'remote-runner-entry.ts')],
+    target: 'bun',
+    format: 'cjs',
+    minify: true,
+    external: RUNNER_EXTERNALS,
+  })
+  if (!built.success || !built.outputs[0])
+    throw new Error(`The runner could not be bundled: ${built.logs.map(log => log.message).join('; ')}`)
+  return built.outputs[0].text()
+}
+
+let preamble: Uint8Array | undefined
 
 /** The runner as one CommonJS file, length-prefixed, ready to be the first bytes on a target's stdin. */
 export function runnerPreamble(): Promise<Uint8Array> {
-  bundle ??= (async () => {
-    const built = await Bun.build({
-      entrypoints: [join(import.meta.dir, 'remote-runner-entry.ts')],
-      target: 'bun',
-      format: 'cjs',
-      minify: true,
-      // The framework is the target project's own install; only the session engine travels.
-      external: ['@stacksjs/config', '@stacksjs/server', '@stacksjs/logging', '@stacksjs/query-builder', '@stacksjs/email'],
-    })
-    if (!built.success || !built.outputs[0])
-      throw new Error(`The runner could not be bundled: ${built.logs.map(log => log.message).join('; ')}`)
-    const code = new Uint8Array(await built.outputs[0].arrayBuffer())
+  if (!preamble) {
+    const code = new TextEncoder().encode(RUNNER_BUNDLE)
     const header = new TextEncoder().encode(`${code.length}\n`)
-    const preamble = new Uint8Array(header.length + code.length)
+    preamble = new Uint8Array(header.length + code.length)
     preamble.set(header)
     preamble.set(code, header.length)
-    return preamble
-  })()
-  return bundle
+  }
+  return Promise.resolve(preamble)
 }
 
 function shellQuote(value: string): string {
@@ -180,7 +203,8 @@ export async function localCommand(target: { directory: string, boot: boolean, b
   return {
     command: [target.bun, '-e', STDIN_LOADER],
     cwd: target.directory,
-    env: { FETTLER_BOOT: target.boot ? '1' : '0' },
+    // BUN_BE_BUN makes the built app's own executable act as Bun when a project has none pinned. A real Bun ignores it.
+    env: { FETTLER_BOOT: target.boot ? '1' : '0', BUN_BE_BUN: '1' },
     preamble: await runnerPreamble(),
   }
 }
