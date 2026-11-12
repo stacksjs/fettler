@@ -46,9 +46,9 @@ export interface Platform {
  */
 export const release = {
   /** A 0.x version string once a build exists. */
-  version: '0.1.0',
+  version: '0.1.1',
   platforms: [
-    { id: 'macos', name: 'macOS', icon: 'i-hugeicons-apple', url: 'https://fettler.org/api/updates/files/stable/darwin-arm64/0.1.0/Fettler-0.1.0-arm64.dmg' },
+    { id: 'macos', name: 'macOS', icon: 'i-hugeicons-apple', url: '/api/download/macos' },
     { id: 'windows', name: 'Windows', icon: 'i-hugeicons-windows-new', url: '' },
     { id: 'linux', name: 'Linux', icon: 'i-hugeicons-computer-terminal-02', url: '' },
   ] as Platform[],

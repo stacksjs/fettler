@@ -37,3 +37,5 @@ route.get('/hello', () => response.text('hello world'))
 route.get('/updates/{platform}/{arch}', 'Actions/Desktop/UpdateFeedAction')
 // A published build, streamed from the updates disk: what the feed's manifests and the download page link to.
 route.get('/updates/files/{channel}/{target}/{version}/{file}', 'Actions/Desktop/UpdateArtifactAction')
+// The newest build for a platform, as a redirect. The site's download button points here.
+route.get('/download/{platform}', 'Actions/Desktop/LatestDownloadAction')
