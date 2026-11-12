@@ -329,6 +329,61 @@ async function releaseLicense() {
   licenseNote.set('This device no longer uses the license.')
 }
 
+// Updates: the launcher checks by itself; the window only says when there is one and installs it when asked.
+const update = state({ state: 'idle', currentVersion: '', selfUpdating: false })
+const updateBusy = state(false)
+const updateReady = derived(() => update().state === 'available' && Boolean(update().version))
+
+async function loadUpdate() {
+  const response = await fetch('/__desktop/update').catch(() => null)
+  // Run from source there is no launcher, and nothing to update.
+  if (response && response.ok) update.set(await response.json())
+}
+
+async function checkForUpdate() {
+  updateBusy.set(true)
+  try {
+    const response = await fetch('/__desktop/update', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ action: 'check' }) }).catch(() => null)
+    if (!response || !response.ok) {
+      notice.set('Updates are checked by the installed app. This copy is running from source.')
+      return
+    }
+    update.set(await response.json())
+    const now = update()
+    if (now.state === 'current') notice.set(`Fettler ${now.currentVersion} is the newest version.`)
+    else if (now.state === 'error' || now.state === 'refused') notice.set(now.error || now.message || 'The update check did not finish.')
+  }
+  finally {
+    updateBusy.set(false)
+  }
+}
+
+let updateWarned = false
+
+async function installUpdate() {
+  const now = update()
+  // A warning (a license whose updates ended before this version, say) is shown once, and the second click goes ahead.
+  if (now.warning && !updateWarned) {
+    updateWarned = true
+    notice.set(`${now.warning} Choose the update again to install it anyway.`)
+    return
+  }
+  updateBusy.set(true)
+  try {
+    const response = await fetch('/__desktop/update', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ action: 'install', acknowledge: updateWarned }) })
+    const body = await response.json().catch(() => ({}))
+    update.set({ ...now, ...body })
+    if (body.state === 'error' || body.state === 'refused') notice.set(body.error || body.message || 'The update could not be installed.')
+    else if (body.message) notice.set(body.message)
+  }
+  catch (cause) {
+    notice.set(cause instanceof Error ? cause.message : 'The update could not be installed.')
+  }
+  finally {
+    updateBusy.set(false)
+  }
+}
+
 const mcpOpen = state(false)
 const mcp = state({ enabled: false, address: '', token: '' })
 
@@ -565,6 +620,7 @@ const paletteItems = derived(() => {
     { kind: 'action', id: 'info', title: 'About this connection', hint: '' },
     { kind: 'action', id: 'assistant', title: 'Ask the assistant', hint: '' },
     { kind: 'action', id: 'mcp', title: 'Let AI tools use Fettler (MCP)', hint: mcp().enabled ? 'on' : 'off' },
+    { kind: 'action', id: 'update', title: updateReady() ? `Install Fettler ${update().version}` : 'Check for updates', hint: update().currentVersion || license().version || '' },
     { kind: 'action', id: 'license', title: 'License', hint: license().source === 'license' ? 'Pro' : license().source === 'beta' ? 'beta' : 'free' },
     { kind: 'action', id: 'new-tab', title: 'New buffer', hint: '' },
     { kind: 'action', id: 'theme-system', title: 'Theme: follow the system', hint: ui().theme === 'system' ? 'current' : '' },
@@ -637,6 +693,10 @@ async function choose(item) {
     await loadLicense()
     licenseNote.set('')
     licenseOpen.set(true)
+  }
+  else if (item.id === 'update') {
+    if (updateReady()) await installUpdate()
+    else await checkForUpdate()
   }
   else if (item.id === 'new-tab') {
     newTab()
@@ -955,13 +1015,14 @@ function runSelection(detail) {
 // App-wide shortcuts work wherever the focus is, including before anything has been clicked.
 useEventListener('keydown', appKey)
 // Coming back to the window picks up what changed while it was away: a project opened by `fettler <path>`, for one.
-useEventListener('focus', () => { void loadState() })
+useEventListener('focus', () => { void loadState(); void loadUpdate() })
 
 void loadState()
 void loadAi()
 void loadMcp()
 void loadWorkspace()
 void loadLicense()
+void loadUpdate()
 </script>
 
 @nolayout
@@ -1258,6 +1319,9 @@ void loadLicense()
 
       <footer class="flex gap-4 items-center shrink-0 px-3 h-6 text-[11px] text-neutral-400 border-neutral-200/70 border-t dark:border-neutral-800/70" data-fettler-status>
         <span class="min-w-0 font-mono truncate" data-fettler-where>{{ whereLabel() }}</span>
+        @if(updateReady())
+          <button type="button" class="flex gap-1.5 items-center shrink-0 text-neutral-700 dark:text-neutral-200 hover:text-neutral-900 dark:hover:text-white disabled:opacity-50" :disabled="updateBusy()" @click="installUpdate()" data-fettler-update><span class="h-1.5 w-1.5 bg-sky-500 rounded-full" aria-hidden="true"></span>{{ updateBusy() ? 'Updating' : 'Update to ' + update().version }}</button>
+        @endif
         <span class="shrink-0 ml-auto" :class="problems() ? 'text-red-600 dark:text-red-400' : ''" data-fettler-problems>{{ problems() === 0 ? 'No problems' : problems() === 1 ? '1 problem' : problems() + ' problems' }}</span>
         <span class="shrink-0 font-mono">{{ caretLabel() }}</span>
         <span class="shrink-0">TypeScript</span>
