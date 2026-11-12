@@ -1,0 +1,406 @@
+<script client>
+import { componentApi } from '@stacksjs/components/component-api'
+import { announceChange, announcePreferences, onPreferences } from '../functions/desktop-bridge'
+
+// The Settings window. It is a window of its own, opened by Cmd+, from the
+// editor: what is changed here is kept by the agent and told to the editor as
+// it changes, so the two never have to be reconciled.
+
+const pane = state('general')
+const prefs = state({ theme: 'system', startup: 'sandbox', fontSize: 13, tabSize: 2, lineNumbers: true, completions: true, hover: true, signatureHelp: true, openPaneOnRun: true })
+const note = state('')
+
+const systemDark = useMediaQuery('(prefers-color-scheme: dark)')
+const themeClass = derived(() => prefs().theme === 'dark' || (prefs().theme !== 'light' && systemDark()) ? 'dark' : 'light')
+// The picker says "auto" for what the preference calls "system".
+const appearance = derived(() => prefs().theme === 'system' ? 'auto' : prefs().theme)
+
+async function send(path, body, method) {
+  const response = await fetch(path, { method: method || 'POST', headers: { 'content-type': 'application/json' }, body: body === undefined ? undefined : JSON.stringify(body) })
+  return { ok: response.ok, body: await response.json().catch(() => ({})) }
+}
+
+async function loadPreferences() {
+  const response = await fetch('/__tinkerbelle/preferences')
+  if (response.ok) prefs.set(await response.json())
+}
+
+async function setPref(name, value) {
+  prefs.set({ ...prefs(), [name]: value })
+  const answer = await send('/__tinkerbelle/preferences', { [name]: value })
+  if (!answer.ok) return
+  prefs.set(answer.body)
+  announcePreferences(answer.body)
+}
+
+const STARTUP = [{ value: 'sandbox', label: 'The sandbox' }, { value: 'last', label: 'The last project' }, { value: 'nothing', label: 'Nothing' }]
+const INDENT = [{ value: '2', label: '2 spaces' }, { value: '4', label: '4 spaces' }, { value: '8', label: '8 spaces' }]
+
+// ---------- AI ----------
+const ai = state({ enabled: false, provider: 'anthropic', model: '', host: '', automatic: false, hasKey: false })
+const aiKey = state('')
+const aiBusy = state(false)
+const PROVIDERS = [{ value: 'anthropic', label: 'Anthropic' }, { value: 'openai', label: 'OpenAI' }, { value: 'ollama', label: 'Ollama (on this computer)' }]
+
+async function loadAi() {
+  const response = await fetch('/__tinkerbelle/ai')
+  if (response.ok) ai.set(await response.json())
+}
+
+// One AI setting changed. The key is sent only when one was typed, and is never read back.
+async function setAi(name, value) {
+  ai.set({ ...ai(), [name]: value })
+  const { hasKey: _hasKey, ...settings } = ai()
+  const answer = await send('/__tinkerbelle/ai', settings)
+  if (answer.ok) ai.set(answer.body)
+  announceChange()
+}
+
+async function saveKey() {
+  const key = aiKey().trim()
+  if (!key) return
+  aiBusy.set(true)
+  try {
+    const { hasKey: _hasKey, ...settings } = ai()
+    const answer = await send('/__tinkerbelle/ai', { ...settings, key })
+    if (answer.ok) ai.set(answer.body)
+    aiKey.set('')
+    announceChange()
+  }
+  finally {
+    aiBusy.set(false)
+  }
+}
+
+async function forgetKey() {
+  const answer = await send('/__tinkerbelle/ai', { key: null })
+  if (answer.ok) ai.set(answer.body)
+  announceChange()
+}
+
+// ---------- AI tools (MCP) ----------
+const mcp = state({ enabled: false, address: '', token: '' })
+
+async function loadMcp() {
+  const response = await fetch('/__tinkerbelle/mcp-settings')
+  if (response.ok) mcp.set({ token: '', ...(await response.json()) })
+}
+
+async function setMcp(enabled) {
+  const answer = await send('/__tinkerbelle/mcp-settings', { enabled })
+  if (answer.ok) mcp.set({ token: '', ...answer.body })
+  announceChange()
+}
+
+const mcpConfig = derived(() => JSON.stringify({ mcpServers: { tinkerbelle: { type: 'http', url: mcp().address, headers: { Authorization: `Bearer ${mcp().token || 'the token shown when this was turned on'}` } } } }, null, 2))
+
+// ---------- License ----------
+const license = state({ pro: false, source: 'none', standing: null, version: '', buildDate: '' })
+const licenseKey = state('')
+const licenseNote = state('')
+const licenseBusy = state(false)
+const licenseDevices = state([])
+
+const licenseSummary = derived(() => {
+  const current = license()
+  if (current.source === 'license' && current.standing) {
+    const until = current.standing.updatesUntil
+    return current.standing.tier === 'lifetime' ? 'Pro, lifetime license' : until ? `Pro, updates until ${until.slice(0, 10)}` : 'Pro'
+  }
+  if (current.source === 'beta') return 'Beta: every feature is open until licenses go on sale.'
+  if (current.standing && current.standing.licensed) return 'Licensed, but this build is newer than the license covers. Remote targets and AI are locked on it.'
+  return 'Free: local projects and the sandbox.'
+})
+const licensed = derived(() => Boolean(license().standing && license().standing.licensed))
+
+async function loadLicense() {
+  const response = await fetch('/__tinkerbelle/license')
+  if (response.ok) license.set(await response.json())
+}
+
+async function activateLicense() {
+  if (!licenseKey().trim()) return
+  licenseBusy.set(true)
+  licenseNote.set('')
+  licenseDevices.set([])
+  try {
+    const answer = await send('/__tinkerbelle/license', { key: licenseKey() })
+    if (answer.body.ok) {
+      license.set(answer.body.entitlements)
+      licenseKey.set('')
+      licenseNote.set('This device is activated.')
+    }
+    else {
+      licenseNote.set(answer.body.message || answer.body.error || 'The key could not be activated.')
+      licenseDevices.set(answer.body.devices || [])
+    }
+    announceChange()
+  }
+  catch (cause) {
+    licenseNote.set(cause instanceof Error ? cause.message : 'The key could not be activated.')
+  }
+  finally {
+    licenseBusy.set(false)
+  }
+}
+
+async function releaseLicense() {
+  const answer = await send('/__tinkerbelle/license', undefined, 'DELETE')
+  if (answer.ok) license.set(answer.body)
+  licenseNote.set('This device no longer uses the license.')
+  announceChange()
+}
+
+// ---------- Updates ----------
+const update = state({ state: 'idle', currentVersion: '', selfUpdating: false })
+const updateBusy = state(false)
+const updateNote = state('')
+const updateReady = derived(() => update().state === 'available' && Boolean(update().version))
+const updateStatus = derived(() => {
+  const now = update()
+  if (updateBusy()) return 'Checking'
+  if (now.state === 'available' && now.version) return `Version ${now.version} is available.`
+  if (now.state === 'current') return 'This is the newest version.'
+  if (now.state === 'installing' || now.state === 'installed') return 'Installing. The app restarts when it is done.'
+  if (now.state === 'error' || now.state === 'refused') return now.error || now.message || 'The last check did not finish.'
+  return now.currentVersion ? 'Checked when the app starts and once a day.' : 'Updates are checked by the installed app. This copy is running from source.'
+})
+
+async function loadUpdate() {
+  const response = await fetch('/__desktop/update').catch(() => null)
+  if (response && response.ok) update.set(await response.json())
+}
+
+async function checkForUpdate() {
+  updateBusy.set(true)
+  updateNote.set('')
+  try {
+    const response = await fetch('/__desktop/update', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ action: 'check' }) }).catch(() => null)
+    if (response && response.ok) update.set(await response.json())
+  }
+  finally {
+    updateBusy.set(false)
+  }
+}
+
+let updateWarned = false
+
+async function installUpdate() {
+  const now = update()
+  // A warning is shown once; choosing the update again goes ahead.
+  if (now.warning && !updateWarned) {
+    updateWarned = true
+    updateNote.set(`${now.warning} Choose Install again to go ahead.`)
+    return
+  }
+  updateBusy.set(true)
+  try {
+    const answer = await send('/__desktop/update', { action: 'install', acknowledge: updateWarned })
+    update.set({ ...now, ...answer.body })
+    if (answer.body.message) updateNote.set(answer.body.message)
+  }
+  finally {
+    updateBusy.set(false)
+  }
+}
+
+// A link to a pane (`/settings#ai`) opens that pane: how the editor sends someone to one setting.
+onMount(() => {
+  const wanted = decodeURIComponent((globalThis.location.hash || '').slice(1))
+  if (wanted) componentApi('settings').showPane(wanted)
+})
+
+useEventListener('focus', () => { void loadPreferences(); void loadUpdate(); void loadLicense() })
+useEventListener('hashchange', () => {
+  const wanted = decodeURIComponent((globalThis.location.hash || '').slice(1))
+  if (wanted) componentApi('settings').showPane(wanted)
+})
+onPreferences((changed) => { if (changed && typeof changed === 'object' && !changed.changed) prefs.set({ ...prefs(), ...changed }) })
+
+void loadPreferences()
+void loadAi()
+void loadMcp()
+void loadLicense()
+void loadUpdate()
+</script>
+
+@nolayout
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Settings</title>
+    <style>
+      html, body { height: 100%; margin: 0; overflow: hidden; background: transparent; }
+      /* The accent is left as the system's: a Settings window that recolours its selection stops looking like one. */
+      [data-tinkerbelle-settings] { height: 100vh; }
+      .tb-config { margin: 0; padding: 10px 12px; overflow-x: auto; font: 11px/1.5 ui-monospace, SFMono-Regular, Menlo, monospace; border-radius: 6px; background: color-mix(in srgb, currentColor 6%, transparent); white-space: pre; }
+      .tb-quiet { color: color-mix(in srgb, currentColor 60%, transparent); font-size: 12px; }
+    </style>
+  </head>
+  <body>
+    <div :class="themeClass()" data-tinkerbelle-settings>
+      <SettingsWindow id="settings" title="Settings" storageKey="tinkerbelle" v-model:pane="pane">
+        <template #sidebar>
+          <SettingsSidebarGroup>
+            <SettingsSidebarItem id="general" label="General" icon="i-f7-gear-alt-fill" tone="grey" />
+            <SettingsSidebarItem id="editor" label="Editor" icon="i-f7-chevron-left-slash-chevron-right" tone="blue" />
+          </SettingsSidebarGroup>
+          <SettingsSidebarGroup>
+            <SettingsSidebarItem id="ai" label="AI" icon="i-f7-sparkles" tone="purple" />
+            <SettingsSidebarItem id="tools" label="AI Tools" icon="i-f7-link" tone="indigo" />
+          </SettingsSidebarGroup>
+          <SettingsSidebarGroup>
+            <SettingsSidebarItem id="license" label="License" icon="i-f7-checkmark-seal-fill" tone="orange" />
+            <SettingsSidebarItem id="updates" label="Software Update" icon="i-f7-arrow-down-circle-fill" tone="grey" />
+            <SettingsSidebarItem id="about" label="About" icon="i-f7-info-circle-fill" tone="grey" />
+          </SettingsSidebarGroup>
+        </template>
+
+        <SettingsPane id="general" title="General" active>
+          <SettingsGroup header="Appearance">
+            <SettingsRow label="Appearance" setting="appearance" keywords="theme light dark mode" multiline>
+              <AppearancePicker :value="appearance()" label="Appearance" @change="setPref('theme', $event === 'auto' ? 'system' : $event)" />
+            </SettingsRow>
+          </SettingsGroup>
+          <SettingsGroup header="Window" footer="The sandbox is a TypeScript session with no project behind it.">
+            <SettingsRow label="When TinkerBelle opens, connect to" setting="startup" keywords="launch start sandbox project">
+              <Select variant="mac" :value="prefs().startup" placeholder="" :options="STARTUP" @change="setPref('startup', $event)" />
+            </SettingsRow>
+            <SettingsRow label="Show the result when code is run" description="Opens the side pane on every run." setting="open-pane" keywords="result pane side output">
+              <Switch variant="mac" :checked="prefs().openPaneOnRun" @change="setPref('openPaneOnRun', $event)" />
+            </SettingsRow>
+          </SettingsGroup>
+        </SettingsPane>
+
+        <SettingsPane id="editor" title="Editor">
+          <SettingsGroup header="Text">
+            <SettingsRow label="Code size" setting="font-size" keywords="font text larger smaller zoom">
+              <span class="tb-quiet" style="margin-right: 10px; font-variant-numeric: tabular-nums">{{ prefs().fontSize }} px</span>
+              <Slider :value="prefs().fontSize" min="10" max="22" step="1" label="Code size" minIcon="i-f7-textformat-size-smaller" maxIcon="i-f7-textformat-size-larger" @change="setPref('fontSize', $event)" />
+            </SettingsRow>
+            <SettingsRow label="Indent" setting="indent" keywords="tab spaces width">
+              <Select variant="mac" :value="String(prefs().tabSize)" placeholder="" :options="INDENT" @change="setPref('tabSize', Number($event))" />
+            </SettingsRow>
+            <SettingsRow label="Line numbers" setting="line-numbers" keywords="gutter">
+              <Switch variant="mac" :checked="prefs().lineNumbers" @change="setPref('lineNumbers', $event)" />
+            </SettingsRow>
+          </SettingsGroup>
+          <SettingsGroup header="Type hints" footer="Hints come from the project's own TypeScript server, so they know your models, actions and config.">
+            <SettingsRow label="Suggest completions while typing" setting="completions" keywords="autocomplete intellisense suggestions">
+              <Switch variant="mac" :checked="prefs().completions" @change="setPref('completions', $event)" />
+            </SettingsRow>
+            <SettingsRow label="Show what a word is on hover" description="Or press the shortcut for the word at the cursor." setting="hover" keywords="type tooltip documentation">
+              <Switch variant="mac" :checked="prefs().hover" @change="setPref('hover', $event)" />
+            </SettingsRow>
+            <SettingsRow label="Show parameters inside a call" setting="signature-help" keywords="signature arguments parameters">
+              <Switch variant="mac" :checked="prefs().signatureHelp" @change="setPref('signatureHelp', $event)" />
+            </SettingsRow>
+          </SettingsGroup>
+        </SettingsPane>
+
+        <SettingsPane id="ai" title="AI">
+          <SettingsGroup footer="Requests carry your code, your question and the names of your models and columns. Rows of data are never sent.">
+            <SettingsRow label="Use AI in TinkerBelle" setting="ai-enabled" keywords="assistant suggestions">
+              <Switch variant="mac" :checked="ai().enabled" @change="setAi('enabled', $event)" />
+            </SettingsRow>
+            <SettingsRow label="Provider" setting="ai-provider" keywords="anthropic openai ollama">
+              <Select variant="mac" :value="ai().provider" placeholder="" :options="PROVIDERS" :disabled="!ai().enabled" @change="setAi('provider', $event)" />
+            </SettingsRow>
+            <SettingsRow label="Model" description="Leave empty for the provider's fast model." setting="ai-model">
+              <TextInput variant="mac" :value="ai().model" placeholder="Default" :disabled="!ai().enabled" @blur="setAi('model', $event.target.value)" />
+            </SettingsRow>
+            @if(ai().provider === 'ollama')
+              <SettingsRow label="Ollama address" setting="ai-host">
+                <TextInput variant="mac" :value="ai().host" placeholder="http://127.0.0.1:11434" :disabled="!ai().enabled" @blur="setAi('host', $event.target.value)" />
+              </SettingsRow>
+            @endif
+            <SettingsRow label="Suggest after a pause" description="Otherwise only when asked with Alt+Backslash." setting="ai-automatic" keywords="ghost inline">
+              <Switch variant="mac" :checked="ai().automatic" :disabled="!ai().enabled" @change="setAi('automatic', $event)" />
+            </SettingsRow>
+          </SettingsGroup>
+          @if(ai().provider !== 'ollama')
+            <SettingsGroup header="API key" footer="Kept in this computer's keychain and never shown again.">
+              <SettingsRow :label="ai().hasKey ? 'A key is saved' : 'No key yet'" :description="ai().hasKey ? 'Type a new one to replace it.' : 'Bring your own from the provider.'" setting="ai-key" keywords="token secret" layout="stacked">
+                <div class="flex gap-2 items-center">
+                  <div class="flex-1 min-w-0"><PasswordInput variant="mac" :value="aiKey()" placeholder="Paste a key" @input="aiKey.set($event)" /></div>
+                  <Button appearance="mac" variant="primary" :disabled="aiBusy() || !aiKey().trim()" @click="saveKey()">Save</Button>
+                </div>
+              </SettingsRow>
+              @if(ai().hasKey)
+                <SettingsRow label="Forget the key" destructive>
+                  <Button appearance="mac" variant="danger" @click="forgetKey()">Forget</Button>
+                </SettingsRow>
+              @endif
+            </SettingsGroup>
+          @endif
+        </SettingsPane>
+
+        <SettingsPane id="tools" title="AI Tools">
+          <SettingsGroup footer="Works while TinkerBelle is open. A production connection is refused unless the tool is told to confirm it. Turning this on makes a new token and ends the old one.">
+            <SettingsRow label="Let AI tools run code through TinkerBelle" description="For tools that speak MCP, such as Claude or Cursor, in the connections you have opened." setting="mcp" keywords="mcp claude cursor agent">
+              <Switch variant="mac" :checked="mcp().enabled" @change="setMcp($event)" />
+            </SettingsRow>
+          </SettingsGroup>
+          @if(mcp().enabled)
+            <SettingsGroup header="Give this to the tool" :footer="mcp().token ? 'The token is shown once. Copy it now.' : 'The token was shown when this was turned on. Turn it off and on again for a new one.'">
+              <SettingsRow label="Configuration" layout="stacked">
+                <pre class="tb-config" data-tinkerbelle-mcp-config>{{ mcpConfig() }}</pre>
+              </SettingsRow>
+            </SettingsGroup>
+          @endif
+        </SettingsPane>
+
+        <SettingsPane id="license" title="License">
+          <SettingsGroup>
+            <SettingsRow label="This copy" :description="licenseSummary()" setting="license-status" multiline></SettingsRow>
+          </SettingsGroup>
+          <SettingsGroup header="License key" footer="A license covers two devices. Local projects and the sandbox are free.">
+            <SettingsRow label="Activate on this device" setting="license-key" keywords="activate pro purchase" layout="stacked">
+              <div class="flex gap-2 items-center">
+                <div class="flex-1 min-w-0"><TextInput variant="mac" :value="licenseKey()" placeholder="XXXX-XXXX-XXXX-XXXX" @input="licenseKey.set($event.target ? $event.target.value : $event)" /></div>
+                <Button appearance="mac" variant="primary" :disabled="licenseBusy() || !licenseKey().trim()" @click="activateLicense()">Activate</Button>
+              </div>
+            </SettingsRow>
+            @if(licenseNote())
+              <SettingsRow :label="licenseNote()" multiline></SettingsRow>
+            @endif
+            @foreach(licenseDevices() as device)
+              <SettingsRow :label="device.name || 'A device'" :value="device.platform || ''"></SettingsRow>
+            @endforeach
+            @if(licensed())
+              <SettingsRow label="Stop using the license on this device" destructive>
+                <Button appearance="mac" variant="danger" @click="releaseLicense()">Remove</Button>
+              </SettingsRow>
+            @endif
+          </SettingsGroup>
+        </SettingsPane>
+
+        <SettingsPane id="updates" title="Software Update">
+          <SettingsGroup>
+            <SettingsRow :label="'TinkerBelle ' + (update().currentVersion || license().version || '')" :description="updateStatus()" setting="update" keywords="version upgrade new" multiline>
+              @if(updateReady())
+                <Button appearance="mac" variant="primary" :disabled="updateBusy()" @click="installUpdate()">Install</Button>
+              @else
+                <Button appearance="mac" :disabled="updateBusy()" @click="checkForUpdate()">Check Now</Button>
+              @endif
+            </SettingsRow>
+            @if(updateNote())
+              <SettingsRow :label="updateNote()" multiline></SettingsRow>
+            @endif
+          </SettingsGroup>
+        </SettingsPane>
+
+        <SettingsPane id="about" title="About">
+          <SettingsPaneHeader icon="i-f7-bell-fill" tone="orange" title="TinkerBelle" description="Run TypeScript against your real app, here or on a server." />
+          <SettingsGroup>
+            <SettingsRow label="Version"><span class="tb-quiet">{{ update().currentVersion || license().version || 'running from source' }}</span></SettingsRow>
+            <SettingsRow label="Built"><span class="tb-quiet">{{ license().buildDate || '' }}</span></SettingsRow>
+            <SettingsRow label="License"><span class="tb-quiet">{{ license().source === 'license' ? 'Pro' : license().source === 'beta' ? 'Beta' : 'Free' }}</span></SettingsRow>
+          </SettingsGroup>
+        </SettingsPane>
+      </SettingsWindow>
+    </div>
+  </body>
+</html>

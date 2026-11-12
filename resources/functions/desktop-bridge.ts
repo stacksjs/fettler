@@ -62,6 +62,11 @@ export function announcePreferences(preferences: unknown): void {
   channel.close()
 }
 
+/** Tell the app's other windows that something other than a preference changed (the AI key, a license), so they read it again. */
+export function announceChange(): void {
+  announcePreferences({ changed: true })
+}
+
 /** Hear what another window changed. Returns what stops listening. */
 export function onPreferences(listener: (preferences: unknown) => void): () => void {
   if (typeof BroadcastChannel === 'undefined')
