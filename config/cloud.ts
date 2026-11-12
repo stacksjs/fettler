@@ -8,6 +8,8 @@ const webPort = 3500
 const apiPort = 3508
 // Outside the atomic releases, so a deploy keeps the database and every published desktop build.
 const data = `/var/lib/${slug}`
+// Kept off the server: desktop builds are published to the data folder, not shipped inside a release.
+const exclude = ['storage/app', 'storage/framework/desktop', 'spikes']
 const runtime = {
   HOST: '127.0.0.1',
   APP_ENV: 'production',
@@ -48,6 +50,7 @@ export const tsCloud: TsCloudConfig = {
       start: 'bun node_modules/@stacksjs/actions/dist/serve/api.js',
       port: apiPort,
       preStart: ['bun install --frozen-lockfile'],
+      exclude,
       env: { ...runtime },
     },
     main: {
@@ -61,6 +64,7 @@ export const tsCloud: TsCloudConfig = {
         `mkdir -p ${data}/db-snapshot ${data}/storage/app`,
         'bun node_modules/@stacksjs/buddy/dist/cli.js migrate --no-generate',
       ],
+      exclude,
       env: { ...runtime, PORT_API: String(apiPort), API_URL: `http://127.0.0.1:${apiPort}` },
     },
     www: { domain: `www.${domain}`, path: '/', redirect: { to: `https://${domain}`, preservePath: true } },
