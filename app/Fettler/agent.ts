@@ -3,6 +3,7 @@ import { join } from 'node:path'
 import process from 'node:process'
 import type { ChatMessage, ModelSummary, SecretStore } from './ai'
 import { AiNotReady, Assistant } from './ai'
+import { DRIVER_BOOTSTRAP, PANELS_SNIPPET, plain, toPanels } from './driver'
 import { findLanguageServer, LanguageService } from './language'
 import { followLog, logCommand } from './logs'
 import type { McpHost } from './mcp'
@@ -80,6 +81,8 @@ export async function startAgent(options: { port?: number, quiet?: boolean, stor
   let connection: Connection | undefined
   let language: LanguageService | undefined
   let environmentOf = ''
+  let driverNote = ''
+  let driverName = ''
   // The connected app's models, asked for once per connection: names for the assistant, never rows.
   let models: ModelSummary[] = []
 
@@ -106,6 +109,18 @@ export async function startAgent(options: { port?: number, quiet?: boolean, stor
       if (seen.type === 'result' && seen.value?.t === 'string')
         environment = String(seen.value.v)
     }).catch(() => {})
+    // The project's own driver, if it has one. A driver that fails says so and the session carries on.
+    let driver: { name: string, panels: boolean } | null = null
+    let driverError = ''
+    await next.run(DRIVER_BOOTSTRAP, (frame) => {
+      const seen = frame as { type?: string, value?: { t: string }, error?: { message?: string } }
+      if (seen.type === 'result' && seen.value)
+        driver = plain(seen.value as never) as { name: string, panels: boolean } | null
+      if (seen.type === 'error')
+        driverError = seen.error?.message ?? 'The driver failed.'
+    }).catch(() => {})
+    driverNote = driverError ? `.fettler/driver could not be loaded: ${driverError}` : ''
+    driverName = (driver as { name: string } | null)?.name ?? ''
     runner?.stop()
     runner = next
     connection = target
@@ -115,6 +130,8 @@ export async function startAgent(options: { port?: number, quiet?: boolean, stor
     store.touchConnection({ key: summary.key, kind: summary.kind, label: summary.label, path: summary.path, where: summary.where, spec: target })
     environmentOf = environment
     models = await next.models().catch(() => [])
+    if (driverNote)
+      info.warnings = [...info.warnings, driverNote]
     return { info, environment }
   }
 
@@ -289,6 +306,23 @@ export async function startAgent(options: { port?: number, quiet?: boolean, stor
         store.setSetting('mcp.enabled', false)
         return json({ enabled: false, address })
       }
+    }
+
+    if (path === '/__fettler/panels' && request.method === 'GET') {
+      if (!runner?.running)
+        return json({ error: 'Open a project first.' }, 409)
+      let panels: unknown = []
+      let failure = ''
+      await runner.run(PANELS_SNIPPET, (frame) => {
+        const seen = frame as { type?: string, value?: { t: string }, error?: { message?: string } }
+        if (seen.type === 'result' && seen.value)
+          panels = plain(seen.value as never)
+        if (seen.type === 'error')
+          failure = seen.error?.message ?? 'The panels could not be read.'
+      }).catch((error) => {
+        failure = error instanceof Error ? error.message : String(error)
+      })
+      return json({ panels: toPanels(panels), driver: driverName, ...(failure ? { error: failure } : {}) })
     }
 
     if (path === '/__fettler/models' && request.method === 'GET')

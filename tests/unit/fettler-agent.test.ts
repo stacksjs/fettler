@@ -1,5 +1,5 @@
 import { afterAll, beforeAll, describe, expect, test } from 'bun:test'
-import { mkdtempSync } from 'node:fs'
+import { mkdirSync, mkdtempSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { startAgent } from '../../app/Fettler/agent'
@@ -49,6 +49,28 @@ describe('the agent', () => {
     expect(frames[1].value).toEqual({ t: 'number', v: 42 })
     const history = await (await api('/__fettler/history')).json() as any
     expect(history.entries.map((entry: any) => [entry.code, entry.ok])).toEqual([['console.log("out"); 20 + 22', true]])
+  }, 30_000)
+
+  test('a project driver boots, adds globals and panels; panels are text only', async () => {
+    const project = mkdtempSync(join(tmpdir(), 'fettler-driven-'))
+    mkdirSync(join(project, '.fettler'))
+    writeFileSync(join(project, 'package.json'), '{ "name": "driven" }')
+    writeFileSync(join(project, '.fettler/driver.ts'), `export default {
+  name: 'Driven',
+  boot() { (globalThis as any).booted = true },
+  globals: () => ({ shop: { id: 7 } }),
+  panels: () => [{ title: 'Sales', sections: [{ title: 'Today', rows: [['Orders', 12], ['Meta', { a: 1 }]] }] }],
+}
+`)
+    const connected = await (await api('/__fettler/connect', { method: 'POST', body: JSON.stringify({ kind: 'local', path: project }) })).json() as any
+    expect(connected.connection).toMatchObject({ kind: 'local', driver: 'bun' })
+    const frames = (await (await api('/__fettler/run', { method: 'POST', body: JSON.stringify({ code: '[booted, shop.id]' }) })).text()).trim().split('\n').map(line => JSON.parse(line))
+    expect(frames.find(frame => frame.type === 'result').value.items).toEqual([{ t: 'boolean', v: true }, { t: 'number', v: 7 }])
+    const info = await (await api('/__fettler/panels')).json() as any
+    expect(info.driver).toBe('Driven')
+    expect(info.panels.map((panel: any) => panel.title)).toEqual(['Runtime', 'Sales'])
+    expect(info.panels[1].sections[0]).toEqual({ title: 'Today', rows: [['Orders', '12'], ['Meta', '{"a":1}']] })
+    await api('/__fettler/connect', { method: 'POST', body: JSON.stringify({ kind: 'sandbox' }) })
   }, 30_000)
 
   test('refuses a remote target whose host would be read as an option', async () => {

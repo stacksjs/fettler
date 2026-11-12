@@ -1,9 +1,9 @@
 import { afterEach, describe, expect, test } from 'bun:test'
-import { mkdtempSync } from 'node:fs'
+import { mkdtempSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { Runner, RunnerExited } from '../../app/Fettler/runner'
-import { commandFor, ConnectionError, summarize, validate } from '../../app/Fettler/targets'
+import { commandFor, ConnectionError, projectKind, summarize, validate } from '../../app/Fettler/targets'
 
 let runner: Runner | undefined
 afterEach(() => {
@@ -58,18 +58,29 @@ describe('a command that is not a session', () => {
 })
 
 describe('local project targets', () => {
-  test('refuses a directory that is not a Stacks project, saying why', async () => {
+  test('refuses a directory that is not a project, saying why', async () => {
     const empty = mkdtempSync(join(tmpdir(), 'fettler-target-'))
     await expect(commandFor({ kind: 'local', path: empty })).rejects.toBeInstanceOf(ConnectionError)
-    await expect(commandFor({ kind: 'local', path: empty })).rejects.toThrow(/no buddy file/)
+    await expect(commandFor({ kind: 'local', path: empty })).rejects.toThrow(/no package\.json/)
     await expect(commandFor({ kind: 'local', path: join(empty, 'missing') })).rejects.toThrow(/does not exist/)
   })
 
-  test('runs this app through its own buddy', async () => {
+  test('a Stacks project boots its app; any other project is a plain Bun session in its directory', async () => {
     const root = join(import.meta.dir, '../..')
-    expect(await commandFor({ kind: 'local', path: root })).toEqual({ command: [join(root, 'buddy'), 'tinker', '--serve'], cwd: root })
-    expect(summarize({ kind: 'local', path: root })).toMatchObject({ kind: 'local', label: 'fettler' })
-  })
+    expect(projectKind(root)).toBe('stacks')
+    const stacks = await commandFor({ kind: 'local', path: root })
+    expect(stacks).toMatchObject({ cwd: root, env: { FETTLER_BOOT: '1' } })
+    expect(summarize({ kind: 'local', path: root })).toMatchObject({ kind: 'local', label: 'fettler', driver: 'stacks' })
+
+    const plain = mkdtempSync(join(tmpdir(), 'fettler-plain-'))
+    writeFileSync(join(plain, 'package.json'), '{ "name": "plain" }')
+    writeFileSync(join(plain, 'lib.ts'), 'export const answer = 41\n')
+    expect(projectKind(plain)).toBe('bun')
+    runner = new Runner(await commandFor({ kind: 'local', path: plain }))
+    expect((await runner.ready).booted).toBe(false)
+    const frames = await collect(runner, 'const { answer } = await import("./lib.ts"); answer + 1')
+    expect(frames.find(frame => frame.type === 'result').value).toEqual({ t: 'number', v: 42 })
+  }, 30_000)
 })
 
 describe('remote targets', () => {

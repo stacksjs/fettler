@@ -1,10 +1,10 @@
 import type { KubeLocator } from './remote'
 import type { RunnerCommand } from './runner'
-import { existsSync, mkdirSync, readFileSync } from 'node:fs'
+import { existsSync, mkdirSync } from 'node:fs'
 import { homedir } from 'node:os'
 import { join, resolve } from 'node:path'
 import process from 'node:process'
-import { dockerCommand, kubeCommand, sshCommand } from './remote'
+import { dockerCommand, kubeCommand, localCommand, sshCommand } from './remote'
 
 /**
  * Where code can run, each reduced to the command that starts a session there.
@@ -32,38 +32,8 @@ export interface ConnectionSummary {
   where?: string
   /** A stable identity for history and the recent list. */
   key: string
-}
-
-/** The first framework release whose `buddy tinker` speaks the frame protocol. */
-const SERVE_SINCE = [0, 75, 541]
-
-function atLeast(version: string, floor: number[]): boolean {
-  const parts = version.split('.').map(part => Number.parseInt(part, 10) || 0)
-  for (const [index, wanted] of floor.entries()) {
-    const have = parts[index] ?? 0
-    if (have !== wanted)
-      return have > wanted
-  }
-  return true
-}
-
-function installedTinkerVersion(root: string): string | undefined {
-  for (const candidate of [
-    'storage/framework/core/tinker/package.json',
-    'node_modules/@stacksjs/tinker/package.json',
-    'pantry/@stacksjs/tinker/package.json',
-  ]) {
-    const file = join(root, candidate)
-    if (!existsSync(file))
-      continue
-    try {
-      return JSON.parse(readFileSync(file, 'utf8')).version as string
-    }
-    catch {
-      // An unreadable manifest is the same as none.
-    }
-  }
-  return undefined
+  /** For a local project: what kind it is. */
+  driver?: 'stacks' | 'bun'
 }
 
 export class ConnectionError extends Error {}
@@ -131,7 +101,7 @@ export function summarize(connection: Connection): ConnectionSummary {
     return { kind: 'sandbox', label: 'Sandbox', key: 'sandbox' }
   if (connection.kind === 'local') {
     const path = resolve(connection.path)
-    return { kind: 'local', label: path.split('/').filter(Boolean).pop() ?? path, path, key: `local:${path}` }
+    return { kind: 'local', label: path.split('/').filter(Boolean).pop() ?? path, path, key: `local:${path}`, driver: existsSync(path) ? projectKind(path) : undefined }
   }
 
   const label = connection.directory.replace(/\/(current|releases\/[^/]+)\/?$/, '').split('/').filter(Boolean).pop() ?? connection.directory
@@ -164,13 +134,20 @@ export async function commandFor(connection: Connection): Promise<RunnerCommand>
   const root = resolve(connection.path)
   if (!existsSync(root))
     throw new ConnectionError(`${root} does not exist.`)
-  if (!existsSync(join(root, 'buddy')))
-    throw new ConnectionError(`${root} is not a Stacks project: it has no buddy file.`)
-  const version = installedTinkerVersion(root)
-  if (!version)
-    throw new ConnectionError(`${root} has no @stacksjs/tinker installed. Run its install first.`)
-  if (!atLeast(version, SERVE_SINCE))
-    throw new ConnectionError(`${root} is on Stacks ${version}. Running code in it needs ${SERVE_SINCE.join('.')} or newer: run ./buddy upgrade there.`)
+  if (!existsSync(join(root, 'package.json')))
+    throw new ConnectionError(`${root} is not a project: it has no package.json.`)
+  return localCommand({ directory: root, boot: projectKind(root) === 'stacks', bun: projectBun(root) })
+}
 
-  return { command: [join(root, 'buddy'), 'tinker', '--serve'], cwd: root }
+/** What kind of project a directory is, which decides how its session starts. */
+export function projectKind(root: string): 'stacks' | 'bun' {
+  const isStacks = existsSync(join(root, 'buddy'))
+    && (existsSync(join(root, 'storage/framework')) || existsSync(join(root, 'config/app.ts')))
+  return isStacks ? 'stacks' : 'bun'
+}
+
+/** The project's own pinned Bun when it has one, so code runs on the version the project is built for. */
+export function projectBun(root: string): string {
+  const pinned = join(root, 'pantry/.bin', process.platform === 'win32' ? 'bun.exe' : 'bun')
+  return existsSync(pinned) ? pinned : process.execPath
 }

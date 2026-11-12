@@ -87,6 +87,7 @@ async function followLogs() {
 function showView(name) {
   view.set(name)
   if (name === 'logs' && !logFollowing()) void followLogs()
+  if (name === 'info') void loadPanels()
   if (name !== 'logs') stopLogs()
 }
 
@@ -216,6 +217,19 @@ function useCode(source) {
   code.set(source)
   scheduleCheck()
   showView('result')
+}
+
+const panels = state([])
+const panelsNote = state('')
+
+async function loadPanels() {
+  panels.set([])
+  panelsNote.set('')
+  if (!connected()) return
+  const response = await fetch('/__fettler/panels')
+  const body = await response.json().catch(() => ({}))
+  panels.set(body.panels || [])
+  if (body.error) panelsNote.set(body.error)
 }
 
 const mcpOpen = state(false)
@@ -656,6 +670,7 @@ void loadMcp()
             <button type="button" role="tab" :aria-selected="view() === 'result' ? 'true' : 'false'" :class="view() === 'result' ? 'px-2.5 h-6 text-xs font-medium bg-neutral-200 dark:bg-neutral-800 rounded' : 'px-2.5 h-6 text-xs text-neutral-500 rounded'" @click="showView('result')" data-fettler-tab-result>Result</button>
             <button type="button" role="tab" :aria-selected="view() === 'logs' ? 'true' : 'false'" :class="view() === 'logs' ? 'px-2.5 h-6 text-xs font-medium bg-neutral-200 dark:bg-neutral-800 rounded' : 'px-2.5 h-6 text-xs text-neutral-500 rounded'" @click="showView('logs')" data-fettler-tab-logs>Logs</button>
             <button type="button" role="tab" :aria-selected="view() === 'assistant' ? 'true' : 'false'" :class="view() === 'assistant' ? 'px-2.5 h-6 text-xs font-medium bg-neutral-200 dark:bg-neutral-800 rounded' : 'px-2.5 h-6 text-xs text-neutral-500 rounded'" @click="showView('assistant')" data-fettler-tab-assistant>Assistant</button>
+            <button type="button" role="tab" :aria-selected="view() === 'info' ? 'true' : 'false'" :class="view() === 'info' ? 'px-2.5 h-6 text-xs font-medium bg-neutral-200 dark:bg-neutral-800 rounded' : 'px-2.5 h-6 text-xs text-neutral-500 rounded'" @click="showView('info')" data-fettler-tab-info>Info</button>
             @if(view() === 'logs')
               <select :value="logLevel()" @change="logLevel.set($event.target.value)" aria-label="Lowest level to show" class="ml-auto px-1.5 h-6 text-xs bg-white dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-800 rounded">
                 <option value="all">All levels</option>
@@ -679,6 +694,32 @@ void loadMcp()
               @if(!logNote() && shownLogs().length === 0)
                 <p class="px-1 text-neutral-500">{{ connected() ? 'No lines yet.' : 'Open a project to follow its log.' }}</p>
               @endif
+            </div>
+          @endif
+
+          @if(view() === 'info')
+            <div class="flex-1 min-h-0 overflow-y-auto p-3 space-y-3" data-fettler-info>
+              @if(!connected())
+                <p class="text-neutral-500 text-sm">Open a project to see what it is running on.</p>
+              @endif
+              @if(panelsNote())
+                <p class="text-red-700 text-xs dark:text-red-300" role="alert">{{ panelsNote() }}</p>
+              @endif
+              @foreach(panels() as panel)
+                <article class="bg-white dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-800 rounded-lg">
+                  <h2 class="px-3 py-1.5 font-medium text-xs border-b border-neutral-200 dark:border-neutral-800">{{ panel.title }}</h2>
+                  @foreach(panel.sections as section)
+                    @if(section.title)
+                      <h3 class="px-3 pt-2 text-[10px] text-neutral-400 uppercase tracking-wide">{{ section.title }}</h3>
+                    @endif
+                    <dl class="px-3 py-1.5">
+                      @foreach(section.rows as row)
+                        <div class="flex gap-3 py-0.5 text-xs"><dt class="w-32 text-neutral-500 shrink-0">{{ row[0] }}</dt><dd class="min-w-0 font-mono break-words">{{ row[1] }}</dd></div>
+                      @endforeach
+                    </dl>
+                  @endforeach
+                </article>
+              @endforeach
             </div>
           @endif
 

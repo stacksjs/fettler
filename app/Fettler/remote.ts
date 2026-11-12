@@ -171,6 +171,20 @@ export function kubeCommand(target: RemoteSession & KubeLocator): Promise<Runner
   return withPreamble(['kubectl', ...kubectlArguments(target, sessionScript(target))])
 }
 
+/**
+ * A session in a directory on this machine, with no shell in between: Bun is
+ * started directly on the loader. Used for every local project, so the
+ * session engine is always this app's own, whatever the project has installed.
+ */
+export async function localCommand(target: { directory: string, boot: boolean, bun: string }): Promise<RunnerCommand> {
+  return {
+    command: [target.bun, '-e', STDIN_LOADER],
+    cwd: target.directory,
+    env: { FETTLER_BOOT: target.boot ? '1' : '0' },
+    preamble: await runnerPreamble(),
+  }
+}
+
 /** The same script through a local shell. What a container exec does, without the container: used by tests and for a local project on an older framework. */
 export function shellCommand(target: RemoteSession): Promise<RunnerCommand> {
   return withPreamble(['sh', '-c', sessionScript(target)])
