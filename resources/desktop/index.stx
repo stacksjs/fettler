@@ -1,0 +1,195 @@
+<script client>
+import { renderTinkerValue } from '../functions/tinker-value'
+
+const code = state('const numbers = [1, 2, 3]\nnumbers.map(n => n * 2)\n')
+const connection = state(null)
+const projectPath = state('')
+const connecting = state(false)
+const running = state(false)
+const notice = state('')
+const output = state('')
+const result = state('')
+const failure = state('')
+const duration = state('')
+const queries = state([])
+
+const connected = derived(() => connection() !== null)
+const targetLabel = derived(() => connection() ? connection().label : 'Not connected')
+
+async function loadState() {
+  const response = await fetch('/__fettler/state')
+  if (!response.ok) return
+  const body = await response.json()
+  connection.set(body.connection)
+}
+
+async function connect(target) {
+  connecting.set(true)
+  notice.set('')
+  try {
+    const response = await fetch('/__fettler/connect', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify(target),
+    })
+    const body = await response.json()
+    if (!response.ok) throw new Error(body.error || 'Could not connect.')
+    connection.set(body.connection)
+    const warnings = body.session?.warnings || []
+    notice.set(warnings.length ? warnings.join(' ') : '')
+  }
+  catch (cause) {
+    notice.set(cause instanceof Error ? cause.message : 'Could not connect.')
+  }
+  finally {
+    connecting.set(false)
+  }
+}
+
+function connectProject() {
+  const path = projectPath().trim()
+  if (path) void connect({ kind: 'local', path })
+}
+
+function take(frame) {
+  if (frame.type === 'stdout' || frame.type === 'stderr' || frame.type === 'stray') output.set(output() + frame.text)
+  else if (frame.type === 'dump') output.set(`${output()}${renderTinkerValue(frame.value)}\n`)
+  else if (frame.type === 'query') queries.set([...queries(), frame])
+  else if (frame.type === 'result') { result.set(renderTinkerValue(frame.value)); duration.set(`${frame.durationMs} ms`) }
+  else if (frame.type === 'error') { failure.set(renderTinkerValue(frame.error)); duration.set(`${frame.durationMs} ms`) }
+  else if (frame.type === 'agent-error') failure.set(frame.message)
+}
+
+async function run(source) {
+  if (running() || !connected()) return
+  running.set(true)
+  output.set('')
+  result.set('')
+  failure.set('')
+  duration.set('')
+  queries.set([])
+  try {
+    const response = await fetch('/__fettler/run', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ code: source }),
+    })
+    if (!response.ok || !response.body) {
+      const body = await response.json().catch(() => ({}))
+      throw new Error(body.error || 'The run could not start.')
+    }
+    const reader = response.body.getReader()
+    const decoder = new TextDecoder()
+    let pending = ''
+    for (;;) {
+      const { value, done } = await reader.read()
+      if (done) break
+      pending += decoder.decode(value, { stream: true })
+      const lines = pending.split('\n')
+      pending = lines.pop() || ''
+      for (const line of lines) if (line) take(JSON.parse(line))
+    }
+  }
+  catch (cause) {
+    failure.set(cause instanceof Error ? cause.message : 'The run failed.')
+  }
+  finally {
+    running.set(false)
+  }
+}
+
+function runAll(detail) {
+  void run(detail && typeof detail.value === 'string' ? detail.value : code())
+}
+
+function runSelection(detail) {
+  if (detail && detail.text) void run(detail.text)
+}
+
+void loadState()
+</script>
+
+@nolayout
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Fettler</title>
+  </head>
+  <body class="h-screen overflow-hidden antialiased text-neutral-900 dark:text-neutral-100 bg-neutral-50 dark:bg-neutral-950">
+    <div class="flex flex-col h-screen" data-fettler-app>
+      <header class="flex gap-3 items-center px-3 h-11 border-b border-neutral-200 dark:border-neutral-800 shrink-0">
+        <span class="font-medium text-sm" data-fettler-target>{{ targetLabel() }}</span>
+        <input
+          type="text"
+          :value="projectPath()"
+          @input="projectPath.set($event.target.value)"
+          @keydown.enter="connectProject()"
+          placeholder="Path to a Stacks project"
+          aria-label="Project path"
+          class="flex-1 min-w-0 px-2 h-7 font-mono text-xs bg-white dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-800 rounded-md focus:outline-none focus:border-neutral-400"
+          data-fettler-path
+        >
+        <button type="button" class="px-2.5 h-7 text-xs bg-white dark:bg-neutral-900 hover:bg-neutral-100 dark:hover:bg-neutral-800 border border-neutral-200 dark:border-neutral-800 rounded-md disabled:opacity-50" :disabled="connecting()" @click="connectProject()" data-fettler-open>Open project</button>
+        <button type="button" class="px-2.5 h-7 text-xs bg-white dark:bg-neutral-900 hover:bg-neutral-100 dark:hover:bg-neutral-800 border border-neutral-200 dark:border-neutral-800 rounded-md disabled:opacity-50" :disabled="connecting()" @click="connect({ kind: 'sandbox' })" data-fettler-sandbox>Sandbox</button>
+        <button type="button" class="px-3 h-7 font-medium text-white text-xs bg-neutral-900 dark:bg-neutral-100 dark:text-neutral-900 rounded-md disabled:opacity-40" :disabled="running() || !connected()" @click="runAll()" data-fettler-run>{{ running() ? 'Running' : 'Run' }}</button>
+      </header>
+
+      @if(notice())
+        <p class="px-3 py-1.5 text-amber-800 text-xs dark:text-amber-300 bg-amber-50 dark:bg-amber-500/10 border-b border-amber-200 dark:border-amber-500/20" role="status" data-fettler-notice>{{ notice() }}</p>
+      @endif
+
+      <main class="flex-1 grid grid-cols-2 min-h-0">
+        <section class="min-h-0 min-w-0 border-r border-neutral-200 dark:border-neutral-800" aria-label="Code">
+          <CodeEditor
+            language="typescript"
+            height="100%"
+            label="Code to run"
+            v-model:value="code"
+            @run="runAll($event)"
+            @run-selection="runSelection($event)"
+          />
+        </section>
+
+        <section class="flex flex-col gap-3 p-3 min-h-0 min-w-0 overflow-y-auto" aria-label="Result" aria-live="polite">
+          @if(!connected())
+            <p class="text-neutral-500 text-sm dark:text-neutral-400">Open a project or the sandbox, then run with Cmd+Enter.</p>
+          @endif
+
+          @if(output())
+            <article class="bg-white dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-800 rounded-lg" data-fettler-output>
+              <h2 class="px-3 py-1.5 font-medium text-[11px] text-neutral-500 border-b border-neutral-200 dark:border-neutral-800">Output</h2>
+              <pre class="p-3 overflow-x-auto font-mono text-xs whitespace-pre-wrap">{{ output() }}</pre>
+            </article>
+          @endif
+
+          @if(result())
+            <article class="bg-white dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-800 rounded-lg" data-fettler-result>
+              <h2 class="flex justify-between px-3 py-1.5 font-medium text-[11px] text-neutral-500 border-b border-neutral-200 dark:border-neutral-800"><span>Result</span><span class="font-mono">{{ duration() }}</span></h2>
+              <pre class="p-3 overflow-x-auto font-mono text-xs whitespace-pre-wrap">{{ result() }}</pre>
+            </article>
+          @endif
+
+          @if(failure())
+            <article class="bg-red-50 dark:bg-red-500/10 border border-red-200 dark:border-red-500/30 rounded-lg" data-fettler-error>
+              <h2 class="flex justify-between px-3 py-1.5 font-medium text-[11px] text-red-700 dark:text-red-300 border-b border-red-200 dark:border-red-500/30"><span>Error</span><span class="font-mono">{{ duration() }}</span></h2>
+              <pre class="p-3 overflow-x-auto font-mono text-red-800 text-xs dark:text-red-200 whitespace-pre-wrap">{{ failure() }}</pre>
+            </article>
+          @endif
+
+          @if(queries().length)
+            <article class="bg-white dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-800 rounded-lg" data-fettler-queries>
+              <h2 class="px-3 py-1.5 font-medium text-[11px] text-neutral-500 border-b border-neutral-200 dark:border-neutral-800">Queries ({{ queries().length }})</h2>
+              <ul class="divide-neutral-200 divide-y dark:divide-neutral-800">
+                @foreach(queries() as query)
+                  <li class="flex gap-3 px-3 py-1.5 font-mono text-xs"><span class="text-neutral-400 shrink-0">{{ query.durationMs }} ms</span><span class="min-w-0 break-words">{{ query.sql }}</span></li>
+                @endforeach
+              </ul>
+            </article>
+          @endif
+        </section>
+      </main>
+    </div>
+  </body>
+</html>

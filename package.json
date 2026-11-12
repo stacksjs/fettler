@@ -55,11 +55,13 @@
     "test:types": "./buddy test:types",
     "bud": "./buddy",
     "probe:integrations": "./buddy integrations:probe",
+    "desktop": "bun app/Fettler/launcher.ts",
+    "desktop:agent": "bun app/Fettler/agent.ts",
     "dev:desktop": "./buddy dev:desktop",
     "build:desktop": "./buddy build:desktop"
   },
   "dependencies": {
-    "@stacksjs/stx": "0.2.842",
+    "@stacksjs/stx": "0.2.855",
     "stacks": "^0.75.541",
     "@stacksjs/env": "^0.75.541",
     "@stacksjs/path": "^0.75.541",
@@ -80,14 +82,14 @@
   },
   "devDependencies": {
     "@actions/expressions": "0.3.61",
-    "@stacksjs/components": "0.2.842",
+    "@stacksjs/components": "0.2.855",
     "better-dx": "^0.2.37",
-    "bun-plugin-stx": "0.2.842"
+    "bun-plugin-stx": "0.2.855"
   },
   "overrides": {
-    "@stacksjs/stx": "0.2.842",
-    "bun-plugin-stx": "0.2.842",
-    "@stacksjs/components": "0.2.842",
+    "@stacksjs/stx": "0.2.855",
+    "bun-plugin-stx": "0.2.855",
+    "@stacksjs/components": "0.2.855",
     "ts-images": "https://registry.pantry.dev/ts-images@22073a9",
     "@stacksjs/ts-svg": "https://registry.pantry.dev/@stacksjs/ts-svg@367a010"
   }
