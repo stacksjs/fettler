@@ -2,7 +2,9 @@
 
 export { increment, decrement, reset, count } from '../../../resources/functions/counter'
 export { isDark, preferredDark, toggleDark } from '../../../resources/functions/dark'
+export { openSettingsWindow, onSettingsRequested, announcePreferences, onPreferences, SETTINGS_WINDOW } from '../../../resources/functions/desktop-bridge'
 export { fuzzyScore, fuzzyFilter } from '../../../resources/functions/fuzzy'
+export { trimHover } from '../../../resources/functions/hover-text'
 export { modelsIn, neighbourhood } from '../../../resources/functions/relation-graph'
 export type { ModelSummary, RelationNode, RelationEdge } from '../../../resources/functions/relation-graph'
 export { cellText, tableOf, tableToCsv, tableToJson, viewRows, gridOf } from '../../../resources/functions/tinker-table'

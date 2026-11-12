@@ -17,8 +17,14 @@ declare global {
   const isDark: typeof autoImports.isDark
   const preferredDark: typeof autoImports.preferredDark
   const toggleDark: typeof autoImports.toggleDark
+  const openSettingsWindow: typeof autoImports.openSettingsWindow
+  const onSettingsRequested: typeof autoImports.onSettingsRequested
+  const announcePreferences: typeof autoImports.announcePreferences
+  const onPreferences: typeof autoImports.onPreferences
+  const SETTINGS_WINDOW: typeof autoImports.SETTINGS_WINDOW
   const fuzzyScore: typeof autoImports.fuzzyScore
   const fuzzyFilter: typeof autoImports.fuzzyFilter
+  const trimHover: typeof autoImports.trimHover
   const modelsIn: typeof autoImports.modelsIn
   const neighbourhood: typeof autoImports.neighbourhood
   const cellText: typeof autoImports.cellText

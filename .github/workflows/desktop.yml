@@ -43,9 +43,6 @@ jobs:
       - name: Install Dependencies
         run: bun install --frozen-lockfile
 
-      - name: Fetch the Craft runtimes
-        run: bun bin/desktop-runtimes.ts
-
       - name: Install the Linux packaging tools
         run: |
           sudo apt-get update -qq
@@ -64,7 +61,6 @@ jobs:
 
       - name: Build
         env:
-          CRAFT_BIN: ${{ github.workspace }}/storage/framework/desktop/runtimes/linux-x64/craft
           # A runner has no FUSE: the packaging tool unpacks itself and runs.
           APPIMAGE_EXTRACT_AND_RUN: '1'
           # The address is public; the rest of the production settings never reach CI.
@@ -117,7 +113,7 @@ jobs:
       # app itself was compiled on the Linux runner.
       - name: Install the packager
         shell: bash
-        # The same Craft release bin/desktop-runtimes.ts pins.
+        # The Craft release the project's lockfile resolves.
         run: |
           mkdir packager && cp bin/package-desktop.ts packager/
           cd packager && bun init -y >/dev/null && bun add craft-native@0.0.499
