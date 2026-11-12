@@ -1,0 +1,44 @@
+@extends('layouts/default')
+@section('content')
+<script server>
+/**
+ * /thanks - where the payment page returns after a purchase. The license is
+ * issued by the payment webhook, not here: this page shows the key once it
+ * exists, and until then says it is on its way without claiming anything.
+ */
+import { thanksFor } from '../../app/Billing/checkout'
+
+const canonicalPath = '/thanks'
+const pageTitle = 'Thank you - Fettler'
+const noindex = true
+
+setResponseHeader('Cache-Control', 'no-store')
+const thanks = await thanksFor(query?.purchase)
+
+const licenseKey = thanks?.licenseKey ?? ''
+const email = thanks?.email ?? ''
+const activateUrl = thanks?.activateUrl ?? ''
+const tierName = thanks?.tier === 'lifetime' ? 'Lifetime' : thanks?.tier === 'standard' ? 'Standard' : ''
+</script>
+<section class="flex flex-col justify-center mx-auto px-4 py-24 md:px-8 md:py-32 max-w-3xl">
+  <span class="size-7 text-accent-ink i-hugeicons-checkmark-circle-02" aria-hidden="true"></span>
+  @if(licenseKey)
+    <h1 class="mt-6 font-semibold text-4xl text-ink tracking-tight">You have Fettler Pro, {{ tierName }}.</h1>
+    @if(email)
+      <p class="mt-4 text-lg text-muted">Your key is also on its way to {{ email }}.</p>
+    @endif
+    <p class="mt-8 break-all font-mono text-ink text-lg select-all" data-license-key>{{ licenseKey }}</p>
+    <p class="mt-3 text-muted text-sm">It activates on two devices. In Fettler, open the command palette, choose License, and paste it.</p>
+    <div class="flex flex-wrap gap-3 mt-8">
+      <a href="{{ activateUrl }}" class="btn btn-primary">Open Fettler and activate</a>
+      <a href="/download" class="btn btn-ghost">Download Fettler</a>
+    </div>
+  @else
+    <h1 class="mt-6 font-semibold text-4xl text-ink tracking-tight">Thank you.</h1>
+    <p class="mt-4 text-lg text-muted">Once the payment is confirmed, your license key arrives by email. That usually takes a minute or two. Reload this page to see it here.</p>
+    <div class="flex flex-wrap gap-3 mt-8">
+      <a href="/download" class="btn btn-primary">Download Fettler</a>
+    </div>
+  @endif
+</section>
+@endsection

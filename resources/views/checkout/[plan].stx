@@ -1,0 +1,57 @@
+@extends('layouts/default')
+@section('content')
+<script server>
+/**
+ * /checkout/<plan> - start a hosted checkout for the plan and send the browser
+ * to it (303). An unknown plan is a 404. While checkout is closed the page
+ * says so and nothing is started.
+ *
+ * One await: a view's server script may await only once.
+ */
+import { startCheckout } from '../../../app/Billing/checkout'
+
+const canonicalPath = '/pricing'
+const pageTitle = 'Checkout - Fettler'
+const noindex = true
+
+const outcome = await startCheckout(params?.plan)
+
+// A session is single-use and personal: nothing may cache this answer.
+setResponseHeader('Cache-Control', 'no-store')
+if (outcome.kind === 'unknown-plan') {
+  notFound()
+}
+else if (outcome.kind === 'redirect') {
+  setResponseStatus(303)
+  setResponseHeader('Location', outcome.url)
+}
+else if (outcome.kind === 'unavailable') {
+  setResponseStatus(503)
+  console.error(`[checkout] ${params?.plan}: ${outcome.reason}`)
+}
+
+const payUrl = outcome.kind === 'redirect' ? outcome.url : ''
+const closed = outcome.kind === 'closed'
+const failed = outcome.kind === 'unavailable'
+</script>
+<section class="flex flex-col justify-center mx-auto px-4 py-24 md:px-8 md:py-32 max-w-3xl">
+  @if(payUrl)
+    <meta http-equiv="refresh" content="0; url={{ payUrl }}">
+    <h1 class="font-semibold text-4xl text-ink tracking-tight">Taking you to the payment page.</h1>
+    <p class="mt-4 text-lg text-muted">If nothing happens, <a href="{{ payUrl }}" class="text-accent-ink underline">continue to payment</a>.</p>
+  @elseif(closed)
+    <h1 class="font-semibold text-4xl text-ink tracking-tight">Checkout is not open yet.</h1>
+    <p class="mt-4 text-lg text-muted">Fettler is in beta and every feature is open while it is. Licenses go on sale with the first release.</p>
+    <div class="flex flex-wrap gap-3 mt-8">
+      <a href="/pricing" class="btn btn-primary">Back to pricing</a>
+      <a href="/download" class="btn btn-ghost">Get the beta</a>
+    </div>
+  @elseif(failed)
+    <h1 class="font-semibold text-4xl text-ink tracking-tight">Checkout is not available right now.</h1>
+    <p class="mt-4 text-lg text-muted">Nothing was charged. Please try again in a few minutes.</p>
+    <div class="flex flex-wrap gap-3 mt-8">
+      <a href="/pricing" class="btn btn-primary">Back to pricing</a>
+    </div>
+  @endif
+</section>
+@endsection
