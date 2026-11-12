@@ -307,6 +307,91 @@ async function copyTable(format) {
   setTimeout(() => copied.set(''), 1500)
 }
 
+const tabs = state([{ id: 't1', title: 'Untitled', code: code() }])
+const activeTab = state('t1')
+const ui = state({ theme: 'system', fontSize: 13 })
+let saveTimer = 0
+let tabCounter = 1
+
+const themeClass = derived(() => ui().theme === 'dark' ? 'dark' : ui().theme === 'light' ? 'light' : '')
+const editorTheme = derived(() => ui().theme === 'system' ? undefined : ui().theme)
+const editorStyle = derived(() => `--stx-code-font-size: ${ui().fontSize}px; --stx-code-line-height: ${Math.round(ui().fontSize * 1.55)}px`)
+
+function tabTitle(tab) {
+  const line = (tab.code || '').split('\n').find(part => part.trim()) || ''
+  return line ? (line.length > 22 ? `${line.slice(0, 22)}...` : line) : 'Untitled'
+}
+
+// The buffers are written a moment after the last change, so closing the window loses nothing.
+function scheduleSave() {
+  clearTimeout(saveTimer)
+  saveTimer = setTimeout(() => {
+    const current = tabs().map(tab => tab.id === activeTab() ? { ...tab, code: code() } : tab)
+    void fetch('/__fettler/workspace', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ tabs: current, active: activeTab(), ui: ui() }) })
+  }, 500)
+}
+
+function selectTab(id) {
+  if (id === activeTab()) return
+  tabs.set(tabs().map(tab => tab.id === activeTab() ? { ...tab, code: code() } : tab))
+  const next = tabs().find(tab => tab.id === id)
+  if (!next) return
+  activeTab.set(id)
+  code.set(next.code)
+  widgets.set([])
+  ghost.set('')
+  scheduleCheck()
+  scheduleSave()
+}
+
+function newTab() {
+  tabs.set(tabs().map(tab => tab.id === activeTab() ? { ...tab, code: code() } : tab))
+  const id = `t${Date.now().toString(36)}${++tabCounter}`
+  tabs.set([...tabs(), { id, title: 'Untitled', code: '' }])
+  activeTab.set(id)
+  code.set('')
+  widgets.set([])
+  diagnostics.set([])
+  scheduleSave()
+}
+
+function closeTab(id) {
+  if (tabs().length === 1) {
+    code.set('')
+    tabs.set([{ ...tabs()[0], code: '' }])
+    scheduleSave()
+    return
+  }
+  const index = tabs().findIndex(tab => tab.id === id)
+  const remaining = tabs().filter(tab => tab.id !== id)
+  tabs.set(remaining)
+  if (id === activeTab()) {
+    const next = remaining[Math.max(0, index - 1)]
+    activeTab.set(next.id)
+    code.set(next.code)
+    scheduleCheck()
+  }
+  scheduleSave()
+}
+
+function setUi(name, value) {
+  ui.set({ ...ui(), [name]: value })
+  scheduleSave()
+}
+
+async function loadWorkspace() {
+  const response = await fetch('/__fettler/workspace')
+  if (!response.ok) return
+  const body = await response.json()
+  if (body.ui && body.ui.fontSize) ui.set({ theme: body.ui.theme || 'system', fontSize: body.ui.fontSize })
+  if (Array.isArray(body.tabs) && body.tabs.length) {
+    tabs.set(body.tabs)
+    const active = body.tabs.find(tab => tab.id === body.active) || body.tabs[0]
+    activeTab.set(active.id)
+    code.set(active.code)
+  }
+}
+
 const connectOpen = state(false)
 const connectKind = state('ssh')
 const form = state({ host: '', user: '', port: '', identityFile: '', jump: '', directory: '', envFile: '.env', container: '', pod: '', namespace: '', context: '' })
@@ -343,6 +428,12 @@ const paletteItems = derived(() => {
     { kind: 'action', id: 'remote', title: 'Connect to a server, container or pod', hint: '' },
     { kind: 'action', id: 'assistant', title: 'Ask the assistant', hint: '' },
     { kind: 'action', id: 'mcp', title: 'Let AI tools use Fettler (MCP)', hint: mcp().enabled ? 'on' : 'off' },
+    { kind: 'action', id: 'new-tab', title: 'New buffer', hint: '' },
+    { kind: 'action', id: 'theme-system', title: 'Theme: follow the system', hint: ui().theme === 'system' ? 'current' : '' },
+    { kind: 'action', id: 'theme-light', title: 'Theme: light', hint: ui().theme === 'light' ? 'current' : '' },
+    { kind: 'action', id: 'theme-dark', title: 'Theme: dark', hint: ui().theme === 'dark' ? 'current' : '' },
+    { kind: 'action', id: 'font-up', title: 'Larger code', hint: `${ui().fontSize}px` },
+    { kind: 'action', id: 'font-down', title: 'Smaller code', hint: `${ui().fontSize}px` },
     { kind: 'action', id: 'ai-settings', title: 'AI settings', hint: ai().enabled ? ai().provider : 'off' },
     { kind: 'action', id: 'suggest', title: 'Suggest at the cursor', hint: 'Alt+Backslash' },
     { kind: 'action', id: 'save', title: 'Save as snippet', hint: firstLine(code()) },
@@ -397,6 +488,15 @@ async function choose(item) {
   }
   else if (item.id === 'ai-settings') {
     aiOpen.set(true)
+  }
+  else if (item.id === 'new-tab') {
+    newTab()
+  }
+  else if (item.id.startsWith('theme-')) {
+    setUi('theme', item.id.slice(6))
+  }
+  else if (item.id === 'font-up' || item.id === 'font-down') {
+    setUi('fontSize', Math.min(22, Math.max(10, ui().fontSize + (item.id === 'font-up' ? 1 : -1))))
   }
   else if (item.id === 'mcp') {
     await loadMcp()
@@ -667,6 +767,7 @@ function runSelection(detail) {
 void loadState()
 void loadAi()
 void loadMcp()
+void loadWorkspace()
 </script>
 
 @nolayout
@@ -678,7 +779,7 @@ void loadMcp()
     <title>Fettler</title>
   </head>
   <body class="h-screen overflow-hidden antialiased text-neutral-900 dark:text-neutral-100 bg-neutral-50 dark:bg-neutral-950">
-    <div class="flex flex-col h-screen" data-fettler-app @keydown="appKey($event)">
+    <div :class="themeClass()" class="flex flex-col h-screen text-neutral-900 dark:text-neutral-100 bg-neutral-50 dark:bg-neutral-950" data-fettler-app @keydown="appKey($event)">
       <header class="flex gap-3 items-center px-3 h-11 border-b border-neutral-200 dark:border-neutral-800 shrink-0">
         <span class="font-medium text-sm" data-fettler-target>{{ targetLabel() }}</span>
         @if(whereLabel())
@@ -717,10 +818,21 @@ void loadMcp()
       @endif
 
       <main class="flex-1 grid grid-cols-2 min-h-0">
-        <section class="min-h-0 min-w-0 border-r border-neutral-200 dark:border-neutral-800" aria-label="Code">
+        <section class="flex flex-col min-h-0 min-w-0 border-r border-neutral-200 dark:border-neutral-800" aria-label="Code" :style="editorStyle()">
+          <div class="flex gap-1 items-center px-2 h-9 overflow-x-auto border-b border-neutral-200 dark:border-neutral-800 shrink-0" role="tablist" aria-label="Buffers" data-fettler-tabs>
+            @foreach(tabs() as tab)
+              <span :class="tab.id === activeTab() ? 'flex gap-1 items-center pl-2.5 pr-1 h-6 text-xs font-medium bg-neutral-200 dark:bg-neutral-800 rounded shrink-0' : 'flex gap-1 items-center pl-2.5 pr-1 h-6 text-xs text-neutral-500 rounded shrink-0'">
+                <button type="button" role="tab" :aria-selected="tab.id === activeTab() ? 'true' : 'false'" class="font-mono" @click="selectTab(tab.id)">{{ tab.id === activeTab() ? tabTitle({ code: code() }) : tabTitle(tab) }}</button>
+                <button type="button" class="px-1 text-neutral-400 hover:text-neutral-900 dark:hover:text-neutral-100 rounded" :aria-label="'Close ' + tabTitle(tab)" @click="closeTab(tab.id)">x</button>
+              </span>
+            @endforeach
+            <button type="button" class="px-2 h-6 text-neutral-500 text-sm rounded hover:bg-neutral-200 dark:hover:bg-neutral-800" aria-label="New buffer" @click="newTab()" data-fettler-new-tab>+</button>
+          </div>
+          <div class="flex-1 min-h-0">
           <CodeEditor
             language="typescript"
             height="100%"
+            :theme="editorTheme()"
             label="Code to run"
             v-model:value="code"
             @ref="editorRef"
@@ -729,11 +841,12 @@ void loadMcp()
             :autoComplete="true"
             :ghostText="ghost()"
             @selection="onSelection($event)"
-            @input="scheduleCheck(); scheduleSuggest()"
+            @input="scheduleCheck(); scheduleSuggest(); scheduleSave()"
             @complete="complete($event)"
             @run="runAll($event)"
             @run-selection="runSelection($event)"
           />
+          </div>
         </section>
 
         <section class="flex flex-col min-h-0 min-w-0" aria-label="Result and logs">

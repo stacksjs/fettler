@@ -346,6 +346,33 @@ export async function startAgent(options: { port?: number, quiet?: boolean, stor
       return json({ panels: toPanels(panels), driver: driverName, ...(failure ? { error: failure } : {}) })
     }
 
+    if (path === '/__fettler/workspace') {
+      // What the window keeps between launches: its open buffers and how it looks.
+      if (request.method === 'GET')
+        return json({ tabs: store.setting('workspace.tabs', null), active: store.setting('workspace.active', null), ui: store.setting('workspace.ui', {}) })
+      if (request.method === 'POST') {
+        const body = await request.json().catch(() => null) as { tabs?: unknown, active?: unknown, ui?: unknown } | null
+        if (!body)
+          return json({ error: 'Nothing was sent.' }, 400)
+        if (Array.isArray(body.tabs)) {
+          const tabs = body.tabs.slice(0, 40)
+            .filter(tab => tab && typeof tab === 'object' && typeof (tab as { code?: unknown }).code === 'string')
+            .map(tab => ({ id: String((tab as { id?: unknown }).id ?? '').slice(0, 40), title: String((tab as { title?: unknown }).title ?? '').slice(0, 80), code: ((tab as { code: string }).code).slice(0, 400_000) }))
+          store.setSetting('workspace.tabs', tabs)
+        }
+        if (typeof body.active === 'string')
+          store.setSetting('workspace.active', body.active.slice(0, 40))
+        if (body.ui && typeof body.ui === 'object') {
+          const ui = body.ui as { theme?: unknown, fontSize?: unknown }
+          store.setSetting('workspace.ui', {
+            theme: ui.theme === 'light' || ui.theme === 'dark' ? ui.theme : 'system',
+            fontSize: Math.min(22, Math.max(10, Number(ui.fontSize) || 13)),
+          })
+        }
+        return json({ ok: true })
+      }
+    }
+
     if (path === '/__fettler/models' && request.method === 'GET')
       return json({ models })
 
