@@ -4,11 +4,14 @@
  * with the chrome around it.
  */
 
+import { productionOrigin } from '../../config/address'
+
 export const site = {
-  name: 'Fettler',
-  url: 'https://fettler.org',
-  title: 'Fettler: run TypeScript against your real Stacks app',
-  description: 'Fettler is a desktop app for macOS, Windows and Linux that runs TypeScript against a booted Stacks app, locally or on a remote target. In early beta.',
+  name: 'TinkerBelle',
+  // From APP_URL, like every other address the app names (config/address.ts).
+  url: productionOrigin(),
+  title: 'TinkerBelle: run TypeScript against your real Stacks app',
+  description: 'TinkerBelle is a desktop app for macOS, Windows and Linux that runs TypeScript against a booted Stacks app, locally or on a remote target. In early beta.',
 }
 
 export interface NavLink {

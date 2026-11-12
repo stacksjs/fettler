@@ -1,4 +1,4 @@
-const root = '/Users/chris/Code/Apps/fettler'
+const root = '/Users/chris/Code/Apps/tinkerbelle'
 const proc = Bun.spawn([`${root}/node_modules/@typescript/typescript-darwin-arm64/lib/tsc`, '--lsp', '--stdio'], { cwd: root, stdin: 'pipe', stdout: 'pipe', stderr: 'pipe' })
 let nextId = 1
 const pending = new Map<number, (v: any) => void>()
@@ -21,9 +21,9 @@ const request = (method: string, params: any) => new Promise<any>((res) => { con
   }
 })()
 const t0 = performance.now()
-const init = await request('initialize', { processId: process.pid, rootUri: `file://${root}`, workspaceFolders: [{ uri: `file://${root}`, name: 'fettler' }], capabilities: { textDocument: { completion: { completionItem: { snippetSupport: false } }, hover: { contentFormat: ['plaintext'] }, publishDiagnostics: {} } } })
+const init = await request('initialize', { processId: process.pid, rootUri: `file://${root}`, workspaceFolders: [{ uri: `file://${root}`, name: 'tinkerbelle' }], capabilities: { textDocument: { completion: { completionItem: { snippetSupport: false } }, hover: { contentFormat: ['plaintext'] }, publishDiagnostics: {} } } })
 send({ method: 'initialized', params: {} })
-const uri = `file://${root}/app/__fettler_scratch__.ts`
+const uri = `file://${root}/app/__tinkerbelle_scratch__.ts`
 const text = `const user = await User.find(1)\nconst name = config.app.name\nconst bad: number = name\nuser.\nexport {}\n`
 send({ method: 'textDocument/didOpen', params: { textDocument: { uri, languageId: 'typescript', version: 1, text } } })
 const hoverUser = await request('textDocument/hover', { textDocument: { uri }, position: { line: 0, character: 20 } })

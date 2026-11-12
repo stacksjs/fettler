@@ -5,19 +5,19 @@ import { downloadFaqs } from '~/resources/data/faqs'
 import { release, released } from '~/resources/data/site'
 
 const canonicalPath = '/download'
-const pageTitle = 'Download - Fettler'
-const pageDescription = 'Fettler is in development. There is no download yet; the first beta will be for macOS, Windows and Linux.'
+const pageTitle = 'Download - TinkerBelle'
+const pageDescription = 'TinkerBelle is in development. There is no download yet; the first beta will be for macOS, Windows and Linux.'
 
 const platforms = release.platforms.map(platform => ({ ...platform, ready: platform.url !== '' }))
 const isReleased = released
 </script>
 <section class="mx-auto pb-10 pt-12 px-4 md:pt-20 md:px-8 max-w-6xl">
   @if(isReleased)
-    <h1 class="max-w-[16ch] font-semibold leading-[1.05] text-4xl text-ink tracking-tighter md:text-5xl rise" style="--i: 0">Download the Fettler beta.</h1>
+    <h1 class="max-w-[16ch] font-semibold leading-[1.05] text-4xl text-ink tracking-tighter md:text-5xl rise" style="--i: 0">Download the TinkerBelle beta.</h1>
     <p class="mt-5 max-w-[58ch] leading-relaxed text-lg text-muted rise" style="--i: 1">A 0.x beta. Free for local projects and the sandbox.</p>
   @else
     <h1 class="max-w-[16ch] font-semibold leading-[1.05] text-4xl text-ink tracking-tighter md:text-5xl rise" style="--i: 0">There is nothing to download yet.</h1>
-    <p class="mt-5 max-w-[58ch] leading-relaxed text-lg text-muted rise" style="--i: 1">Fettler is in development. The first public build will be a 0.x beta for all three platforms, and this page will carry it.</p>
+    <p class="mt-5 max-w-[58ch] leading-relaxed text-lg text-muted rise" style="--i: 1">TinkerBelle is in development. The first public build will be a 0.x beta for all three platforms, and this page will carry it.</p>
   @endif
   <div class="mt-8 rise" style="--i: 2">
     <DownloadButton variant="status" />

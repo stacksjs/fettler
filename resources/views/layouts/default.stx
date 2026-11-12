@@ -87,53 +87,53 @@ const navPath = typeof canonicalPath !== 'undefined' && canonicalPath ? canonica
 
     /* Layers: 20 the sticky nav, 30 the skip link. Nothing else is raised. */
     html { scroll-behavior: smooth; }
-    html body.fettler { background: var(--page); color: var(--ink); font-family: 'Geist', ui-sans-serif, system-ui, sans-serif; }
+    html body.tinkerbelle { background: var(--page); color: var(--ink); font-family: 'Geist', ui-sans-serif, system-ui, sans-serif; }
     /* A component with a client script is wrapped in a scope div, which would
        otherwise become the box a sticky header is trapped in. */
-    body.fettler > div[data-stx-scope] { display: contents; }
+    body.tinkerbelle > div[data-stx-scope] { display: contents; }
 
-    .fettler .num { font-variant-numeric: tabular-nums; }
+    .tinkerbelle .num { font-variant-numeric: tabular-nums; }
 
     /* Radius: controls are 8px, containers are 12px. That is the whole system. */
-    .fettler .btn { display: inline-flex; align-items: center; justify-content: center; gap: .5rem; white-space: nowrap; border-radius: 8px; padding: .7rem 1.1rem; font-weight: 600; font-size: .9375rem; line-height: 1.25rem; transition: transform .2s cubic-bezier(.16, 1, .3, 1), background-color .2s, border-color .2s; }
-    .fettler .btn:active { transform: translateY(1px) scale(.98); }
-    .fettler .btn-primary { background: var(--accent); color: var(--on-accent); }
-    .fettler .btn-primary:hover { background: #ec6b45; }
-    .fettler .btn-ghost { border: 1px solid var(--line); color: var(--ink); background: var(--surface); }
-    .fettler .btn-ghost:hover { border-color: var(--muted); }
-    .fettler .btn-off { border: 1px dashed var(--line); color: var(--muted); cursor: default; }
-    .fettler .btn-off:active { transform: none; }
-    .fettler a:focus-visible, .fettler summary:focus-visible, .fettler button:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; border-radius: 8px; }
+    .tinkerbelle .btn { display: inline-flex; align-items: center; justify-content: center; gap: .5rem; white-space: nowrap; border-radius: 8px; padding: .7rem 1.1rem; font-weight: 600; font-size: .9375rem; line-height: 1.25rem; transition: transform .2s cubic-bezier(.16, 1, .3, 1), background-color .2s, border-color .2s; }
+    .tinkerbelle .btn:active { transform: translateY(1px) scale(.98); }
+    .tinkerbelle .btn-primary { background: var(--accent); color: var(--on-accent); }
+    .tinkerbelle .btn-primary:hover { background: #ec6b45; }
+    .tinkerbelle .btn-ghost { border: 1px solid var(--line); color: var(--ink); background: var(--surface); }
+    .tinkerbelle .btn-ghost:hover { border-color: var(--muted); }
+    .tinkerbelle .btn-off { border: 1px dashed var(--line); color: var(--muted); cursor: default; }
+    .tinkerbelle .btn-off:active { transform: none; }
+    .tinkerbelle a:focus-visible, .tinkerbelle summary:focus-visible, .tinkerbelle button:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; border-radius: 8px; }
 
-    .fettler .link { color: var(--accent-ink); text-decoration: underline; text-underline-offset: 4px; text-decoration-thickness: 1px; }
-    .fettler .link:hover { text-decoration-thickness: 2px; }
+    .tinkerbelle .link { color: var(--accent-ink); text-decoration: underline; text-underline-offset: 4px; text-decoration-thickness: 1px; }
+    .tinkerbelle .link:hover { text-decoration-thickness: 2px; }
 
-    .fettler .site-nav { background: color-mix(in srgb, var(--page) 84%, transparent); backdrop-filter: blur(14px) saturate(160%); -webkit-backdrop-filter: blur(14px) saturate(160%); }
-    @media (prefers-reduced-transparency: reduce) { .fettler .site-nav { background: var(--page); backdrop-filter: none; -webkit-backdrop-filter: none; } }
+    .tinkerbelle .site-nav { background: color-mix(in srgb, var(--page) 84%, transparent); backdrop-filter: blur(14px) saturate(160%); -webkit-backdrop-filter: blur(14px) saturate(160%); }
+    @media (prefers-reduced-transparency: reduce) { .tinkerbelle .site-nav { background: var(--page); backdrop-filter: none; -webkit-backdrop-filter: none; } }
 
     /* Code. Keywords take the accent; three quiet hues do the rest. */
-    .fettler .code { font-family: 'Geist Mono', ui-monospace, SFMono-Regular, monospace; font-size: .8125rem; line-height: 1.6rem; }
-    .fettler .tk-k { color: var(--accent-ink); }
-    .fettler .tk-f { color: var(--ink); font-weight: 500; }
-    .fettler .tk-s { color: var(--syn-string); }
-    .fettler .tk-t { color: var(--syn-type); }
-    .fettler .tk-c { color: var(--syn-comment); }
-    .fettler .tk-p { color: var(--ink); }
+    .tinkerbelle .code { font-family: 'Geist Mono', ui-monospace, SFMono-Regular, monospace; font-size: .8125rem; line-height: 1.6rem; }
+    .tinkerbelle .tk-k { color: var(--accent-ink); }
+    .tinkerbelle .tk-f { color: var(--ink); font-weight: 500; }
+    .tinkerbelle .tk-s { color: var(--syn-string); }
+    .tinkerbelle .tk-t { color: var(--syn-type); }
+    .tinkerbelle .tk-c { color: var(--syn-comment); }
+    .tinkerbelle .tk-p { color: var(--ink); }
 
-    .fettler details > summary { list-style: none; cursor: pointer; }
-    .fettler details > summary::-webkit-details-marker { display: none; }
-    .fettler details > summary > .faq-mark { transition: transform .25s cubic-bezier(.16, 1, .3, 1); }
-    .fettler details[open] > summary > .faq-mark { transform: rotate(45deg); }
+    .tinkerbelle details > summary { list-style: none; cursor: pointer; }
+    .tinkerbelle details > summary::-webkit-details-marker { display: none; }
+    .tinkerbelle details > summary > .faq-mark { transition: transform .25s cubic-bezier(.16, 1, .3, 1); }
+    .tinkerbelle details[open] > summary > .faq-mark { transform: rotate(45deg); }
 
     /* Long-form pages: the changelog body and the legal pages. */
-    .fettler .prose { max-width: 65ch; color: var(--muted); line-height: 1.7; }
-    .fettler .prose h2 { margin-top: 2rem; color: var(--ink); font-weight: 600; font-size: 1.125rem; letter-spacing: -0.01em; }
-    .fettler .prose p { margin-top: .85rem; }
-    .fettler .prose ul { margin-top: .85rem; padding-left: 1.1rem; list-style: disc; }
-    .fettler .prose li { margin-top: .4rem; }
-    .fettler .prose li::marker { color: var(--line); }
-    .fettler .prose code { font-family: 'Geist Mono', ui-monospace, monospace; font-size: .875em; color: var(--ink); background: var(--tint); border-radius: 4px; padding: .1em .35em; }
-    .fettler .prose a { color: var(--accent-ink); text-decoration: underline; text-underline-offset: 4px; }
+    .tinkerbelle .prose { max-width: 65ch; color: var(--muted); line-height: 1.7; }
+    .tinkerbelle .prose h2 { margin-top: 2rem; color: var(--ink); font-weight: 600; font-size: 1.125rem; letter-spacing: -0.01em; }
+    .tinkerbelle .prose p { margin-top: .85rem; }
+    .tinkerbelle .prose ul { margin-top: .85rem; padding-left: 1.1rem; list-style: disc; }
+    .tinkerbelle .prose li { margin-top: .4rem; }
+    .tinkerbelle .prose li::marker { color: var(--line); }
+    .tinkerbelle .prose code { font-family: 'Geist Mono', ui-monospace, monospace; font-size: .875em; color: var(--ink); background: var(--tint); border-radius: 4px; padding: .1em .35em; }
+    .tinkerbelle .prose a { color: var(--accent-ink); text-decoration: underline; text-underline-offset: 4px; }
 
     /*
      * Motion, all of it CSS on transform and opacity. A page arrives in
@@ -142,16 +142,16 @@ const navPath = typeof canonicalPath !== 'undefined' && canonicalPath ? canonica
      */
     @media (prefers-reduced-motion: reduce) { html { scroll-behavior: auto; } }
     @media (prefers-reduced-motion: no-preference) {
-      .fettler .rise { animation: f-rise .7s cubic-bezier(.16, 1, .3, 1) both; animation-delay: calc(var(--i, 0) * 80ms); }
+      .tinkerbelle .rise { animation: f-rise .7s cubic-bezier(.16, 1, .3, 1) both; animation-delay: calc(var(--i, 0) * 80ms); }
       @keyframes f-rise { from { opacity: 0; transform: translateY(14px); } to { opacity: 1; transform: none; } }
 
       @supports (animation-timeline: view()) {
-        .fettler .reveal { animation: f-rise linear both; animation-timeline: view(); animation-range: entry 0% cover 22%; }
+        .tinkerbelle .reveal { animation: f-rise linear both; animation-timeline: view(); animation-range: entry 0% cover 22%; }
       }
     }
   </style>
 </head>
-<body class="min-h-[100dvh] antialiased fettler">
+<body class="min-h-[100dvh] antialiased tinkerbelle">
   <a href="#main" class="focus:fixed focus:left-3 focus:top-3 focus:px-4 focus:py-2 focus:text-ink focus:bg-surface focus:border focus:border-line focus:rounded-lg sr-only focus:not-sr-only" style="z-index: 30">Skip to content</a>
   <SiteNav path="{{ navPath }}" />
   <main id="main" tabindex="-1">

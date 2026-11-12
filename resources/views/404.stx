@@ -4,7 +4,7 @@
 // With no view matching, stx serves this one. notFound() makes the status
 // line agree with the page, so a wrong address is never indexed as a real one.
 const canonicalPath = '/404'
-const pageTitle = 'Not found - Fettler'
+const pageTitle = 'Not found - TinkerBelle'
 const noindex = true
 notFound()
 </script>
@@ -13,7 +13,7 @@ notFound()
   <h1 class="mt-6 font-semibold text-4xl text-ink tracking-tight">There is no page here.</h1>
   <p class="mt-4 text-lg text-muted">The address may be mistyped, or the page may not exist yet.</p>
   <div class="flex flex-wrap gap-3 mt-8">
-    <a href="/" class="btn btn-primary">Back to Fettler</a>
+    <a href="/" class="btn btn-primary">Back to TinkerBelle</a>
     <a href="/changelog" class="btn btn-ghost">Read the changelog</a>
   </div>
 </section>

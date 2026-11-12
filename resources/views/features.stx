@@ -4,11 +4,11 @@
 import { editor, more } from '~/resources/data/features'
 
 const canonicalPath = '/features'
-const pageTitle = 'Features - Fettler'
-const pageDescription = 'What Fettler does: typed result cards, table mode, a SQL panel, relation graphs, HTML preview, remote targets, language-server completion and more. In development.'
+const pageTitle = 'Features - TinkerBelle'
+const pageDescription = 'What TinkerBelle does: typed result cards, table mode, a SQL panel, relation graphs, HTML preview, remote targets, language-server completion and more. In development.'
 </script>
 <section class="mx-auto pb-6 pt-12 px-4 md:pt-20 md:px-8 max-w-6xl">
-  <h1 class="max-w-[18ch] font-semibold leading-[1.05] text-4xl text-ink tracking-tighter md:text-5xl rise" style="--i: 0">Everything Fettler is being built to do.</h1>
+  <h1 class="max-w-[18ch] font-semibold leading-[1.05] text-4xl text-ink tracking-tighter md:text-5xl rise" style="--i: 0">Everything TinkerBelle is being built to do.</h1>
   <p class="mt-5 max-w-[60ch] leading-relaxed text-lg text-muted rise" style="--i: 1">This page describes the 0.x beta in progress. None of it can be downloaded yet, and the <a href="/changelog" class="link">changelog</a> says what exists today.</p>
 </section>
 
@@ -75,7 +75,7 @@ const pageDescription = 'What Fettler does: typed result cards, table mode, a SQ
   <div class="py-14 md:py-20 border-line border-t reveal">
     <h2 class="max-w-[20ch] font-semibold leading-tight text-3xl text-ink tracking-tight">Coming from PHP? See how it compares.</h2>
     <div class="flex flex-wrap gap-3 items-center mt-8">
-      <a href="/compare" class="btn btn-ghost">Fettler and Tinkerwell</a>
+      <a href="/compare" class="btn btn-ghost">TinkerBelle and Tinkerwell</a>
       <a href="/pricing" class="btn btn-ghost">See pricing</a>
     </div>
   </div>

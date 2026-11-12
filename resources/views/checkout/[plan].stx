@@ -11,7 +11,7 @@
 import { startCheckout } from '../../../app/Billing/checkout'
 
 const canonicalPath = '/pricing'
-const pageTitle = 'Checkout - Fettler'
+const pageTitle = 'Checkout - TinkerBelle'
 const noindex = true
 
 const outcome = await startCheckout(params?.plan)
@@ -41,7 +41,7 @@ const failed = outcome.kind === 'unavailable'
     <p class="mt-4 text-lg text-muted">If nothing happens, <a href="{{ payUrl }}" class="text-accent-ink underline">continue to payment</a>.</p>
   @elseif(closed)
     <h1 class="font-semibold text-4xl text-ink tracking-tight">Checkout is not open yet.</h1>
-    <p class="mt-4 text-lg text-muted">Fettler is in beta and every feature is open while it is. Licenses go on sale with the first release.</p>
+    <p class="mt-4 text-lg text-muted">TinkerBelle is in beta and every feature is open while it is. Licenses go on sale with the first release.</p>
     <div class="flex flex-wrap gap-3 mt-8">
       <a href="/pricing" class="btn btn-primary">Back to pricing</a>
       <a href="/download" class="btn btn-ghost">Get the beta</a>

@@ -1,0 +1,15 @@
+#!/bin/sh
+# Open TinkerBelle, on a project when one is named: `tinkerbelle` or `tinkerbelle ./my-app`.
+# This is the development form. A packaged build ships its own launcher under the same name.
+set -e
+ROOT=$(CDPATH= cd -- "$(dirname "$0")/.." && pwd)
+START=$(pwd)
+cd "$ROOT"
+if [ -n "$1" ]; then
+  case "$1" in
+    /*) TARGET=$1 ;;
+    *) TARGET="$START/$1" ;;
+  esac
+  exec bun app/TinkerBelle/launcher.ts "$TARGET"
+fi
+exec bun app/TinkerBelle/launcher.ts

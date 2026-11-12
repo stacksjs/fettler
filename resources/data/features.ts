@@ -1,5 +1,5 @@
 /**
- * What Fettler does, as one list read by the home page and the features page.
+ * What TinkerBelle does, as one list read by the home page and the features page.
  * Everything here is being built for the 0.x beta and none of it can be
  * downloaded yet; the pages say so once, at the top, instead of on every row.
  * `pro` marks what a Pro license unlocks.
@@ -81,6 +81,6 @@ export const more: Feature[] = [
   { title: 'Snippets', body: 'Keep the code you run every week.', icon: 'i-hugeicons-bookmark-01' },
   { title: 'History', body: 'Every run, ready to open again.', icon: 'i-hugeicons-clock-01' },
   { title: 'Themes', body: 'Change how the editor looks.', icon: 'i-hugeicons-paint-board' },
-  { title: 'Drivers', body: 'Tell Fettler how to boot a project.', icon: 'i-hugeicons-plug-01' },
+  { title: 'Drivers', body: 'Tell TinkerBelle how to boot a project.', icon: 'i-hugeicons-plug-01' },
   { title: 'Team sharing', body: 'Share your work with the people you work with.', icon: 'i-hugeicons-user-group', pro: true },
 ]

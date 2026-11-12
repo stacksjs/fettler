@@ -3,14 +3,14 @@ import { env } from '@stacksjs/env'
 
 export default {
   from: {
-    name: env.MAIL_FROM_NAME || 'Fettler',
+    name: env.MAIL_FROM_NAME || 'TinkerBelle',
     address: env.MAIL_FROM_ADDRESS || 'hello@example.com',
   },
 
   domain: env.MAIL_DOMAIN || env.APP_DOMAIN || 'example.com',
   mailboxes: [],
   forwards: {},
-  url: env.APP_URL || 'fettler.localhost',
+  url: env.APP_URL || 'tinkerbelle.localhost',
   charset: 'UTF-8',
 
   server: {

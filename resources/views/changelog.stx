@@ -4,8 +4,8 @@
 import { changelogEntries } from '~/resources/data/changelog'
 
 const canonicalPath = '/changelog'
-const pageTitle = 'Changelog - Fettler'
-const pageDescription = 'What has shipped in Fettler, one entry per release, and what exists before the first beta.'
+const pageTitle = 'Changelog - TinkerBelle'
+const pageDescription = 'What has shipped in TinkerBelle, one entry per release, and what exists before the first beta.'
 
 const entries = changelogEntries()
 </script>

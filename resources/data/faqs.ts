@@ -10,8 +10,8 @@ export interface FaqItem {
 
 export const homeFaqs: FaqItem[] = [
   {
-    q: 'Can I download Fettler today?',
-    a: 'No. Fettler is in development and there is no build to download. The first public release will be a 0.x beta for macOS, Windows and Linux, and the changelog is where it will be announced.',
+    q: 'Can I download TinkerBelle today?',
+    a: 'No. TinkerBelle is in development and there is no build to download. The first public release will be a 0.x beta for macOS, Windows and Linux, and the changelog is where it will be announced.',
   },
   {
     q: 'What does it run my code against?',
@@ -19,7 +19,7 @@ export const homeFaqs: FaqItem[] = [
   },
   {
     q: 'Does it change anything on my server?',
-    a: 'Fettler writes nothing on a remote server to run a snippet. Your code can still change data, the same as it would anywhere else, so treat production with care.',
+    a: 'TinkerBelle writes nothing on a remote server to run a snippet. Your code can still change data, the same as it would anywhere else, so treat production with care.',
   },
   {
     q: 'Do I have to rerun everything each time?',

@@ -73,5 +73,5 @@ onMount(() => {
 
 <style>
   /* A utility's display would otherwise beat the hidden attribute. */
-  .fettler .download-button [hidden] { display: none !important; }
+  .tinkerbelle .download-button [hidden] { display: none !important; }
 </style>

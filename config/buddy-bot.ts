@@ -16,7 +16,7 @@ export default {
     // lives under, which is the only place the workflow above runs. Replace the
     // fallback if you also run buddy-bot locally.
     owner: process.env.GITHUB_REPOSITORY_OWNER || 'your-github-owner',
-    name: 'fettler',
+    name: 'tinkerbelle',
     // token: process.env.BUDDY_BOT_TOKEN,
   },
 

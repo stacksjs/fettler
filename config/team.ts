@@ -1,6 +1,6 @@
 import type { Team } from '@stacksjs/types'
 
 export default {
-  name: 'Fettler',
+  name: 'TinkerBelle',
   members: {},
 } satisfies Team

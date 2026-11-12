@@ -52,12 +52,12 @@ function toggleMenu() { menuOpen.update(open => !open) }
 </header>
 
 <style>
-  .fettler .site-nav .nav-cta { padding: .5rem .9rem; font-size: .875rem; }
-  .fettler .site-nav .site-menu { display: none; }
-  .fettler .site-nav .menu-button > .menu-close { display: none; }
+  .tinkerbelle .site-nav .nav-cta { padding: .5rem .9rem; font-size: .875rem; }
+  .tinkerbelle .site-nav .site-menu { display: none; }
+  .tinkerbelle .site-nav .menu-button > .menu-close { display: none; }
   @media (max-width: 767.98px) {
-    .fettler .site-nav:has(.menu-button[aria-expanded='true']) .site-menu { display: block; }
-    .fettler .site-nav .menu-button[aria-expanded='true'] > .menu-open { display: none; }
-    .fettler .site-nav .menu-button[aria-expanded='true'] > .menu-close { display: inline-block; }
+    .tinkerbelle .site-nav:has(.menu-button[aria-expanded='true']) .site-menu { display: block; }
+    .tinkerbelle .site-nav .menu-button[aria-expanded='true'] > .menu-open { display: none; }
+    .tinkerbelle .site-nav .menu-button[aria-expanded='true'] > .menu-close { display: inline-block; }
   }
 </style>

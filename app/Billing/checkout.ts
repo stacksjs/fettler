@@ -3,7 +3,7 @@ import process from 'node:process'
 import { CHECKOUT_OPEN, planById, PRODUCT_NAME } from './plans'
 
 /**
- * Buying a Fettler Pro license.
+ * Buying a TinkerBelle Pro license.
  *
  * The payment provider hosts the payment page; this site never sees a card.
  * A checkout carries a license purchase reference, the provider echoes it in
@@ -83,7 +83,7 @@ export async function startCheckout(planId: unknown, deps?: CheckoutDeps): Promi
       successUrl: `${resolved.origin}/thanks?purchase=${encodeURIComponent(reference)}`,
       cancelUrl: `${resolved.origin}/pricing`,
       reference,
-      metadata: { product: 'fettler', tier: sale.tier },
+      metadata: { product: 'tinkerbelle', tier: sale.tier },
     })
     return session.url ? { kind: 'redirect', url: session.url } : { kind: 'unavailable', reason: 'The payment provider returned no page to send the buyer to.' }
   }
@@ -97,7 +97,7 @@ export interface Thanks {
   licenseKey: string
   tier: string
   email: string
-  /** Opens Fettler on its license dialog with the key filled in. */
+  /** Opens TinkerBelle on its license dialog with the key filled in. */
   activateUrl: string
 }
 
@@ -122,7 +122,7 @@ export async function thanksFor(reference: unknown, deps?: ThanksDeps): Promise<
       licenseKey: license.key,
       tier: license.tier,
       email: license.email ?? '',
-      activateUrl: `fettler://activate?key=${encodeURIComponent(license.key)}`,
+      activateUrl: `tinkerbelle://activate?key=${encodeURIComponent(license.key)}`,
     }
   }
   catch {

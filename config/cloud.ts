@@ -1,8 +1,13 @@
 import type { CloudConfig } from '@stacksjs/types'
 import type { CloudConfig as TsCloudConfig } from '@stacksjs/ts-cloud'
+import { formerHosts, productionHost } from './address'
 
-const slug = 'fettler'
-const domain = 'fettler.org'
+const slug = 'tinkerbelle'
+// The address is APP_URL (config/address.ts). Changing it there moves the site: the next deploy
+// publishes DNS for the new name, issues its certificates and routes it. A name listed in
+// APP_FORMER_DOMAINS keeps answering and redirects here.
+const domain = productionHost()
+const former = Object.fromEntries(formerHosts().flatMap(host => [host, `www.${host}`]).map((host, index) => [`former${index}`, { domain: host, path: '/', redirect: { to: `https://${domain}`, preservePath: true } }]))
 // Read from `ss -lntp` on the attached host on November 12, 2026: nothing bound 3500 to 3508.
 const webPort = 3500
 const apiPort = 3508
@@ -14,15 +19,15 @@ const runtime = {
   HOST: '127.0.0.1',
   APP_ENV: 'production',
   NODE_ENV: 'production',
-  APP_NAME: 'Fettler',
+  APP_NAME: 'TinkerBelle',
   APP_URL: `https://${domain}`,
   APP_DOMAIN: domain,
   // The site mounts what it serves by name in routes/: the update feed, and checkout when it opens.
   STACKS_DEFAULT_ROUTES: 'none',
   STACKS_MODEL_APIS: 'none',
   DB_CONNECTION: 'sqlite',
-  DB_DATABASE: `${data}/fettler.sqlite`,
-  DB_DATABASE_PATH: `${data}/fettler.sqlite`,
+  DB_DATABASE: `${data}/tinkerbelle.sqlite`,
+  DB_DATABASE_PATH: `${data}/tinkerbelle.sqlite`,
   DB_SNAPSHOT_PATH: `${data}/db-snapshot`,
   // Desktop builds live on the local disk under ${data}/storage/app/desktop-updates.
   STORAGE_DRIVER: 'local',
@@ -68,6 +73,7 @@ export const tsCloud: TsCloudConfig = {
       env: { ...runtime, PORT_API: String(apiPort), API_URL: `http://127.0.0.1:${apiPort}` },
     },
     www: { domain: `www.${domain}`, path: '/', redirect: { to: `https://${domain}`, preservePath: true } },
+    ...former,
   },
 }
 

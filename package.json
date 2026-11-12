@@ -1,14 +1,14 @@
 {
-  "name": "fettler",
+  "name": "tinkerbelle",
   "type": "module",
   "version": "0.1.1",
   "private": true,
-  "description": "Fettler",
+  "description": "TinkerBelle",
   "engines": {
     "bun": "1.4.4"
   },
   "bin": {
-    "fettler": "./bin/fettler"
+    "tinkerbelle": "./bin/tinkerbelle"
   },
   "scripts": {
     "build:reset": "rm -rf node_modules && pantry install && ./buddy generate:types && ./buddy lint:fix",
@@ -59,7 +59,7 @@
     "bud": "./buddy",
     "probe:integrations": "./buddy integrations:probe",
     "desktop": "./buddy dev:desktop",
-    "desktop:agent": "bun app/Fettler/agent.ts",
+    "desktop:agent": "bun app/TinkerBelle/agent.ts",
     "dev:desktop": "./buddy dev:desktop",
     "build:desktop": "./buddy build:desktop"
   },

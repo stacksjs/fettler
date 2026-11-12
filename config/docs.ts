@@ -21,10 +21,10 @@ const config: BunPressOptions = {
   nav: [],
 
   markdown: {
-    title: `${env.APP_NAME || 'Fettler'} Documentation`,
+    title: `${env.APP_NAME || 'TinkerBelle'} Documentation`,
     meta: {
       description: '',
-      author: env.APP_NAME || 'Fettler',
+      author: env.APP_NAME || 'TinkerBelle',
     },
     syntaxHighlightTheme: 'github-dark',
     toc: {

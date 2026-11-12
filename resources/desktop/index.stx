@@ -67,7 +67,7 @@ async function followLogs() {
   logAbort = new AbortController()
   logFollowing.set(true)
   try {
-    const response = await fetch('/__fettler/logs', { signal: logAbort.signal })
+    const response = await fetch('/__tinkerbelle/logs', { signal: logAbort.signal })
     if (!response.ok || !response.body) {
       const body = await response.json().catch(() => ({}))
       logNote.set(body.error || 'The log could not be followed.')
@@ -123,7 +123,7 @@ let ghostAbort = null
 let caret = { line: 0, column: 0 }
 
 async function loadAi() {
-  const response = await fetch('/__fettler/ai')
+  const response = await fetch('/__tinkerbelle/ai')
   if (response.ok) ai.set(await response.json())
 }
 
@@ -135,7 +135,7 @@ async function saveAi() {
   aiSaving.set(true)
   try {
     const { hasKey: _hasKey, ...settings } = ai()
-    const response = await fetch('/__fettler/ai', {
+    const response = await fetch('/__tinkerbelle/ai', {
       method: 'POST',
       headers: { 'content-type': 'application/json' },
       body: JSON.stringify({ ...settings, ...(aiKey().trim() ? { key: aiKey().trim() } : {}) }),
@@ -150,7 +150,7 @@ async function saveAi() {
 }
 
 async function forgetKey() {
-  const response = await fetch('/__fettler/ai', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ key: null }) })
+  const response = await fetch('/__tinkerbelle/ai', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ key: null }) })
   if (response.ok) ai.set(await response.json())
 }
 
@@ -169,7 +169,7 @@ async function suggest() {
   const text = code()
   const at = offsetOf(text, caret.line, caret.column)
   try {
-    const response = await fetch('/__fettler/ai/suggest', {
+    const response = await fetch('/__tinkerbelle/ai/suggest', {
       method: 'POST',
       headers: { 'content-type': 'application/json' },
       body: JSON.stringify({ before: text.slice(0, at), after: text.slice(at) }),
@@ -205,7 +205,7 @@ async function ask() {
   asking.set(true)
   chatNote.set('')
   try {
-    const response = await fetch('/__fettler/ai/ask', {
+    const response = await fetch('/__tinkerbelle/ai/ask', {
       method: 'POST',
       headers: { 'content-type': 'application/json' },
       body: JSON.stringify({ messages: messages.map(message => ({ role: message.role, content: message.content })), code: code() }),
@@ -239,7 +239,7 @@ async function loadPanels() {
   panels.set([])
   panelsNote.set('')
   if (!connected()) return
-  const response = await fetch('/__fettler/panels')
+  const response = await fetch('/__tinkerbelle/panels')
   const body = await response.json().catch(() => ({}))
   panels.set(body.panels || [])
   if (body.error) panelsNote.set(body.error)
@@ -255,7 +255,7 @@ async function loadBoxes() {
   boxes.set([])
   boxesNote.set('')
   try {
-    const response = await fetch('/__fettler/boxes', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ environment: 'production' }) })
+    const response = await fetch('/__tinkerbelle/boxes', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ environment: 'production' }) })
     const body = await response.json()
     if (!response.ok) throw new Error(body.error || 'The deploys could not be listed.')
     boxes.set(body.targets || [])
@@ -294,7 +294,7 @@ const licenseSummary = derived(() => {
 })
 
 async function loadLicense() {
-  const response = await fetch('/__fettler/license')
+  const response = await fetch('/__tinkerbelle/license')
   if (response.ok) license.set(await response.json())
 }
 
@@ -303,7 +303,7 @@ async function activateLicense() {
   licenseNote.set('')
   licenseDevices.set([])
   try {
-    const response = await fetch('/__fettler/license', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ key: licenseKey() }) })
+    const response = await fetch('/__tinkerbelle/license', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ key: licenseKey() }) })
     const body = await response.json()
     if (body.ok) {
       license.set(body.entitlements)
@@ -324,7 +324,7 @@ async function activateLicense() {
 }
 
 async function releaseLicense() {
-  const response = await fetch('/__fettler/license', { method: 'DELETE' })
+  const response = await fetch('/__tinkerbelle/license', { method: 'DELETE' })
   if (response.ok) license.set(await response.json())
   licenseNote.set('This device no longer uses the license.')
 }
@@ -350,7 +350,7 @@ async function checkForUpdate() {
     }
     update.set(await response.json())
     const now = update()
-    if (now.state === 'current') notice.set(`Fettler ${now.currentVersion} is the newest version.`)
+    if (now.state === 'current') notice.set(`TinkerBelle ${now.currentVersion} is the newest version.`)
     else if (now.state === 'error' || now.state === 'refused') notice.set(now.error || now.message || 'The update check did not finish.')
   }
   finally {
@@ -388,17 +388,17 @@ const mcpOpen = state(false)
 const mcp = state({ enabled: false, address: '', token: '' })
 
 async function loadMcp() {
-  const response = await fetch('/__fettler/mcp-settings')
+  const response = await fetch('/__tinkerbelle/mcp-settings')
   if (response.ok) mcp.set({ token: '', ...(await response.json()) })
 }
 
 async function setMcp(enabled) {
-  const response = await fetch('/__fettler/mcp-settings', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ enabled }) })
+  const response = await fetch('/__tinkerbelle/mcp-settings', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ enabled }) })
   if (response.ok) mcp.set({ token: '', ...(await response.json()) })
 }
 
 // What an MCP client is given: the address and the bearer token, in the shape most of them take.
-const mcpConfig = derived(() => JSON.stringify({ mcpServers: { fettler: { type: 'http', url: mcp().address, headers: { Authorization: `Bearer ${mcp().token || 'the token shown when you turned this on'}` } } } }, null, 2))
+const mcpConfig = derived(() => JSON.stringify({ mcpServers: { tinkerbelle: { type: 'http', url: mcp().address, headers: { Authorization: `Bearer ${mcp().token || 'the token shown when you turned this on'}` } } } }, null, 2))
 
 const lastValue = state(null)
 const resultView = state('text')
@@ -416,7 +416,7 @@ const relations = derived(() => modelList() && resultModels().length ? neighbour
 
 async function loadModels() {
   if (modelList()) return
-  const response = await fetch('/__fettler/models')
+  const response = await fetch('/__tinkerbelle/models')
   modelList.set(response.ok ? (await response.json()).models || [] : [])
 }
 
@@ -428,7 +428,7 @@ function showGraph() {
 function expandRelations(detail) {
   if (!detail || !detail.node || !modelList()) return
   const more = neighbourhood(modelList(), [detail.node.id])
-  const graph = componentApi('fettler-relations')
+  const graph = componentApi('tinkerbelle-relations')
   graph.addNeighbours(detail.node.id, more.nodes.filter(node => node.id !== detail.node.id), more.edges)
   graph.updateNode(detail.node.id, { expandable: false })
 }
@@ -469,7 +469,7 @@ function scheduleSave() {
   clearTimeout(saveTimer)
   saveTimer = setTimeout(() => {
     const current = tabs().map(tab => tab.id === activeTab() ? { ...tab, code: code() } : tab)
-    void fetch('/__fettler/workspace', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ tabs: current, active: activeTab(), ui: ui() }) })
+    void fetch('/__tinkerbelle/workspace', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ tabs: current, active: activeTab(), ui: ui() }) })
   }, 500)
 }
 
@@ -522,7 +522,7 @@ function setUi(name, value) {
 }
 
 async function loadWorkspace() {
-  const response = await fetch('/__fettler/workspace')
+  const response = await fetch('/__tinkerbelle/workspace')
   if (!response.ok) return
   const body = await response.json()
   if (body.ui && body.ui.fontSize) ui.set({ theme: body.ui.theme || 'system', fontSize: body.ui.fontSize })
@@ -589,7 +589,7 @@ const targetLabel = derived(() => connection() ? connection().label : 'Not conne
 let firstState = true
 
 async function loadState() {
-  const response = await fetch('/__fettler/state')
+  const response = await fetch('/__tinkerbelle/state')
   if (!response.ok) return
   const body = await response.json()
   const first = firstState
@@ -619,8 +619,8 @@ const paletteItems = derived(() => {
     { kind: 'action', id: 'logs', title: 'Follow the log', hint: '' },
     { kind: 'action', id: 'info', title: 'About this connection', hint: '' },
     { kind: 'action', id: 'assistant', title: 'Ask the assistant', hint: '' },
-    { kind: 'action', id: 'mcp', title: 'Let AI tools use Fettler (MCP)', hint: mcp().enabled ? 'on' : 'off' },
-    { kind: 'action', id: 'update', title: updateReady() ? `Install Fettler ${update().version}` : 'Check for updates', hint: update().currentVersion || license().version || '' },
+    { kind: 'action', id: 'mcp', title: 'Let AI tools use TinkerBelle (MCP)', hint: mcp().enabled ? 'on' : 'off' },
+    { kind: 'action', id: 'update', title: updateReady() ? `Install TinkerBelle ${update().version}` : 'Check for updates', hint: update().currentVersion || license().version || '' },
     { kind: 'action', id: 'license', title: 'License', hint: license().source === 'license' ? 'Pro' : license().source === 'beta' ? 'beta' : 'free' },
     { kind: 'action', id: 'new-tab', title: 'New buffer', hint: '' },
     { kind: 'action', id: 'theme-system', title: 'Theme: follow the system', hint: ui().theme === 'system' ? 'current' : '' },
@@ -648,7 +648,7 @@ async function openPalette() {
   paletteOpen.set(true)
   await nextTick()
   if (paletteInput.value) paletteInput.value.focus()
-  const [snippetsResponse, historyResponse] = await Promise.all([fetch('/__fettler/snippets'), fetch('/__fettler/history')])
+  const [snippetsResponse, historyResponse] = await Promise.all([fetch('/__tinkerbelle/snippets'), fetch('/__tinkerbelle/history')])
   if (snippetsResponse.ok) snippets.set((await snippetsResponse.json()).snippets || [])
   if (historyResponse.ok) historyEntries.set((await historyResponse.json()).entries || [])
   await loadState()
@@ -721,7 +721,7 @@ async function choose(item) {
     await connect({ kind: 'sandbox' })
   }
   else if (item.id === 'save') {
-    await fetch('/__fettler/snippets', {
+    await fetch('/__tinkerbelle/snippets', {
       method: 'POST',
       headers: { 'content-type': 'application/json' },
       body: JSON.stringify({ title: firstLine(code()) || 'Untitled', code: code(), scoped: connection() && connection().kind === 'local' }),
@@ -729,7 +729,7 @@ async function choose(item) {
     notice.set('Saved as a snippet.')
   }
   else if (item.id === 'clear-history') {
-    await fetch('/__fettler/history', { method: 'DELETE' })
+    await fetch('/__tinkerbelle/history', { method: 'DELETE' })
     notice.set('History cleared.')
   }
 }
@@ -778,7 +778,7 @@ async function connect(target) {
   connecting.set(true)
   notice.set('')
   try {
-    const response = await fetch('/__fettler/connect', {
+    const response = await fetch('/__tinkerbelle/connect', {
       method: 'POST',
       headers: { 'content-type': 'application/json' },
       body: JSON.stringify(target),
@@ -835,7 +835,7 @@ async function discover(what) {
   notice.set('')
   try {
     const f = form()
-    const response = await fetch('/__fettler/discover', {
+    const response = await fetch('/__tinkerbelle/discover', {
       method: 'POST',
       headers: { 'content-type': 'application/json' },
       body: JSON.stringify({ what, ssh: connectKind() === 'ssh' ? sshPart() : undefined, context: f.context.trim() || undefined, namespace: f.namespace.trim() || undefined }),
@@ -859,7 +859,7 @@ async function pick(item) {
   setField(item.field, item.value)
   found.set([])
   if (item.field !== 'container' || form().directory.trim()) return
-  const response = await fetch('/__fettler/discover', {
+  const response = await fetch('/__tinkerbelle/discover', {
     method: 'POST',
     headers: { 'content-type': 'application/json' },
     body: JSON.stringify({ what: 'workdir', container: item.value, ssh: connectKind() === 'ssh' ? sshPart() : undefined }),
@@ -914,7 +914,7 @@ async function run(source) {
   widgets.set([])
   lastValue.set(null)
   try {
-    const response = await fetch('/__fettler/run', {
+    const response = await fetch('/__tinkerbelle/run', {
       method: 'POST',
       headers: { 'content-type': 'application/json' },
       body: JSON.stringify({ code: source }),
@@ -944,7 +944,7 @@ async function run(source) {
 }
 
 async function language(op, text, line, column) {
-  const response = await fetch('/__fettler/language', {
+  const response = await fetch('/__tinkerbelle/language', {
     method: 'POST',
     headers: { 'content-type': 'application/json' },
     body: JSON.stringify({ op, text, line, column }),
@@ -1014,7 +1014,7 @@ function runSelection(detail) {
 
 // App-wide shortcuts work wherever the focus is, including before anything has been clicked.
 useEventListener('keydown', appKey)
-// Coming back to the window picks up what changed while it was away: a project opened by `fettler <path>`, for one.
+// Coming back to the window picks up what changed while it was away: a project opened by `tinkerbelle <path>`, for one.
 useEventListener('focus', () => { void loadState(); void loadUpdate() })
 
 void loadState()
@@ -1031,32 +1031,32 @@ void loadUpdate()
   <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>Fettler</title>
+    <title>TinkerBelle</title>
     <style>
       /* The editor is the window: no frame of its own, and the page's background behind the code. */
-      [data-fettler-editor] [data-stx-code-editor] { border: 0; border-radius: 0; --stx-code-bg: transparent; --stx-code-padding-y: 14px; --stx-code-padding-x: 16px; }
-      .fettler-pane { width: 44%; min-width: 320px; max-width: 760px; }
-      .fettler-float { box-shadow: 0 16px 48px -16px rgb(0 0 0 / 0.28), 0 2px 6px -2px rgb(0 0 0 / 0.08); }
+      [data-tinkerbelle-editor] [data-stx-code-editor] { border: 0; border-radius: 0; --stx-code-bg: transparent; --stx-code-padding-y: 14px; --stx-code-padding-x: 16px; }
+      .tinkerbelle-pane { width: 44%; min-width: 320px; max-width: 760px; }
+      .tinkerbelle-float { box-shadow: 0 16px 48px -16px rgb(0 0 0 / 0.28), 0 2px 6px -2px rgb(0 0 0 / 0.08); }
       body { font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Text', 'Segoe UI Variable', 'Segoe UI', system-ui, sans-serif; }
     </style>
   </head>
   <body class="overflow-hidden h-screen antialiased text-neutral-900 dark:text-neutral-100 bg-neutral-50 dark:bg-neutral-950">
-    <div :class="themeClass()" data-fettler-theme>
-    <div class="flex flex-col h-screen text-neutral-900 dark:text-neutral-100 bg-neutral-50 dark:bg-neutral-950" data-fettler-app>
-      <header class="flex gap-1 items-center shrink-0 pl-2 pr-2 h-10 border-b border-neutral-200/70 dark:border-neutral-800/70" data-fettler-bar>
+    <div :class="themeClass()" data-tinkerbelle-theme>
+    <div class="flex flex-col h-screen text-neutral-900 dark:text-neutral-100 bg-neutral-50 dark:bg-neutral-950" data-tinkerbelle-app>
+      <header class="flex gap-1 items-center shrink-0 pl-2 pr-2 h-10 border-b border-neutral-200/70 dark:border-neutral-800/70" data-tinkerbelle-bar>
         <div class="relative shrink-0">
-          <button type="button" class="flex gap-2 items-center px-2 h-7 text-[13px] hover:bg-neutral-200/60 dark:hover:bg-neutral-800/70 rounded-md" aria-haspopup="dialog" :aria-expanded="switcherOpen() ? 'true' : 'false'" :title="'Open a project (' + MOD + '+O)'" @click="switcherOpen.set(!switcherOpen())" data-fettler-switch>
+          <button type="button" class="flex gap-2 items-center px-2 h-7 text-[13px] hover:bg-neutral-200/60 dark:hover:bg-neutral-800/70 rounded-md" aria-haspopup="dialog" :aria-expanded="switcherOpen() ? 'true' : 'false'" :title="'Open a project (' + MOD + '+O)'" @click="switcherOpen.set(!switcherOpen())" data-tinkerbelle-switch>
             <span :class="dotClass()" class="h-1.5 w-1.5 rounded-full" aria-hidden="true"></span>
-            <span class="font-medium" data-fettler-target>{{ connecting() ? 'Connecting' : targetLabel() }}</span>
+            <span class="font-medium" data-tinkerbelle-target>{{ connecting() ? 'Connecting' : targetLabel() }}</span>
             @if(environmentLabel())
-              <span :class="isProduction() ? 'font-medium text-[11px] text-red-600 dark:text-red-400' : 'text-[11px] text-neutral-400'" data-fettler-environment>{{ environmentLabel() }}</span>
+              <span :class="isProduction() ? 'font-medium text-[11px] text-red-600 dark:text-red-400' : 'text-[11px] text-neutral-400'" data-tinkerbelle-environment>{{ environmentLabel() }}</span>
             @endif
             <span class="inline-block h-3.5 w-3.5 text-neutral-400 i-hugeicons-arrow-down-01" aria-hidden="true"></span>
           </button>
 
           @if(switcherOpen())
             <div class="fixed inset-0 z-40" @click="closeSwitcher()" aria-hidden="true"></div>
-            <div class="absolute left-0 top-9 z-50 w-80 bg-white dark:bg-neutral-900 border border-neutral-200 rounded-lg dark:border-neutral-700 fettler-float" role="dialog" aria-label="Open a project" data-fettler-switcher>
+            <div class="absolute left-0 top-9 z-50 w-80 bg-white dark:bg-neutral-900 border border-neutral-200 rounded-lg dark:border-neutral-700 tinkerbelle-float" role="dialog" aria-label="Open a project" data-tinkerbelle-switcher>
               <label class="flex gap-2 items-center px-3 h-10 border-b border-neutral-200/70 dark:border-neutral-800">
                 <span class="inline-block shrink-0 h-4 w-4 text-neutral-400 i-hugeicons-folder-01" aria-hidden="true"></span>
                 <input
@@ -1070,23 +1070,23 @@ void loadUpdate()
                   spellcheck="false"
                   autofocus
                   class="flex-1 min-w-0 font-mono text-xs bg-transparent focus:outline-none"
-                  data-fettler-path
+                  data-tinkerbelle-path
                 >
               </label>
               <ul class="py-1 text-[13px]">
-                <li><button type="button" class="flex gap-2.5 items-center px-3 h-8 w-full text-left hover:bg-neutral-100 dark:hover:bg-neutral-800" @click="openSandbox()" data-fettler-sandbox><span class="inline-block h-4 w-4 text-neutral-400 i-hugeicons-cube" aria-hidden="true"></span>Sandbox<span class="ml-auto text-[11px] text-neutral-400">no project</span></button></li>
+                <li><button type="button" class="flex gap-2.5 items-center px-3 h-8 w-full text-left hover:bg-neutral-100 dark:hover:bg-neutral-800" @click="openSandbox()" data-tinkerbelle-sandbox><span class="inline-block h-4 w-4 text-neutral-400 i-hugeicons-cube" aria-hidden="true"></span>Sandbox<span class="ml-auto text-[11px] text-neutral-400">no project</span></button></li>
                 @foreach(recentProjects() as item)
                   <li><button type="button" class="flex gap-2.5 items-center px-3 h-8 w-full text-left hover:bg-neutral-100 dark:hover:bg-neutral-800" @click="openRecent(item)"><span :class="item.kind === 'local' ? 'i-hugeicons-folder-01' : 'i-hugeicons-cloud-server'" class="inline-block shrink-0 h-4 w-4 text-neutral-400" aria-hidden="true"></span><span class="shrink-0">{{ item.label }}</span><span class="ml-auto min-w-0 font-mono text-[11px] text-neutral-400 truncate">{{ item.path || item.where || '' }}</span></button></li>
                 @endforeach
               </ul>
               <div class="py-1 text-[13px] border-neutral-200/70 border-t dark:border-neutral-800">
-                <button type="button" class="flex gap-2.5 items-center px-3 h-8 w-full text-left hover:bg-neutral-100 dark:hover:bg-neutral-800" @click="openRemote()" data-fettler-remote><span class="inline-block h-4 w-4 text-neutral-400 i-hugeicons-server-stack-01" aria-hidden="true"></span>Server, container or pod</button>
+                <button type="button" class="flex gap-2.5 items-center px-3 h-8 w-full text-left hover:bg-neutral-100 dark:hover:bg-neutral-800" @click="openRemote()" data-tinkerbelle-remote><span class="inline-block h-4 w-4 text-neutral-400 i-hugeicons-server-stack-01" aria-hidden="true"></span>Server, container or pod</button>
               </div>
             </div>
           @endif
         </div>
 
-        <div class="flex overflow-x-auto flex-1 gap-0.5 items-center px-1 min-w-0" role="tablist" aria-label="Buffers" data-fettler-tabs>
+        <div class="flex overflow-x-auto flex-1 gap-0.5 items-center px-1 min-w-0" role="tablist" aria-label="Buffers" data-tinkerbelle-tabs>
           @foreach(tabs() as tab)
             <span :class="tab.id === activeTab() ? 'flex items-center shrink-0 pl-2.5 pr-1 h-7 text-[12px] text-neutral-900 dark:text-neutral-100 bg-neutral-200/70 dark:bg-neutral-800 rounded-md' : 'flex items-center shrink-0 px-2.5 h-7 text-[12px] text-neutral-500 hover:text-neutral-900 dark:hover:text-neutral-100 rounded-md'">
               <button type="button" role="tab" :aria-selected="tab.id === activeTab() ? 'true' : 'false'" class="max-w-[14rem] font-mono truncate" @click="selectTab(tab.id)">{{ tab.id === activeTab() ? tabTitle({ code: code() }) : tabTitle(tab) }}</button>
@@ -1095,28 +1095,28 @@ void loadUpdate()
               @endif
             </span>
           @endforeach
-          <button type="button" class="flex items-center justify-center shrink-0 h-7 w-7 text-neutral-500 hover:text-neutral-900 dark:hover:text-neutral-100 hover:bg-neutral-200/60 dark:hover:bg-neutral-800/70 rounded-md" aria-label="New buffer" :title="'New buffer (' + MOD + '+T)'" @click="newTab()" data-fettler-new-tab><span class="inline-block h-3.5 w-3.5 i-hugeicons-add-01" aria-hidden="true"></span></button>
+          <button type="button" class="flex items-center justify-center shrink-0 h-7 w-7 text-neutral-500 hover:text-neutral-900 dark:hover:text-neutral-100 hover:bg-neutral-200/60 dark:hover:bg-neutral-800/70 rounded-md" aria-label="New buffer" :title="'New buffer (' + MOD + '+T)'" @click="newTab()" data-tinkerbelle-new-tab><span class="inline-block h-3.5 w-3.5 i-hugeicons-add-01" aria-hidden="true"></span></button>
         </div>
 
-        <button type="button" class="flex items-center shrink-0 px-2 h-7 font-mono text-[11px] text-neutral-500 hover:text-neutral-900 dark:hover:text-neutral-100 hover:bg-neutral-200/60 dark:hover:bg-neutral-800/70 rounded-md" aria-label="Open the command palette" :title="'Everything else (' + MOD + '+K)'" @click="openPalette()" data-fettler-palette-button>{{ MOD_KEY }}K</button>
-        <button type="button" :class="paneOpen() ? 'text-neutral-900 dark:text-neutral-100 bg-neutral-200/70 dark:bg-neutral-800' : ''" class="flex items-center justify-center shrink-0 h-7 w-7 text-neutral-500 hover:text-neutral-900 dark:hover:text-neutral-100 hover:bg-neutral-200/60 dark:hover:bg-neutral-800/70 rounded-md" :aria-pressed="paneOpen() ? 'true' : 'false'" aria-label="Show or hide the side pane" :title="'Side pane (' + MOD + '+J)'" @click="togglePane()" data-fettler-pane-toggle><span class="inline-block h-4 w-4 i-hugeicons-sidebar-right" aria-hidden="true"></span></button>
-        <button type="button" class="flex gap-1.5 items-center shrink-0 ml-1 pl-2.5 pr-2 h-7 font-medium text-[12px] text-white dark:text-neutral-900 bg-neutral-900 dark:bg-neutral-100 rounded-md disabled:opacity-40 transition-transform active:scale-[0.98]" :disabled="running() || !connected()" @click="runAll()" data-fettler-run>{{ running() ? 'Running' : 'Run' }}<span class="font-mono font-normal text-[10px] opacity-60">{{ RUN_KEYS }}</span></button>
+        <button type="button" class="flex items-center shrink-0 px-2 h-7 font-mono text-[11px] text-neutral-500 hover:text-neutral-900 dark:hover:text-neutral-100 hover:bg-neutral-200/60 dark:hover:bg-neutral-800/70 rounded-md" aria-label="Open the command palette" :title="'Everything else (' + MOD + '+K)'" @click="openPalette()" data-tinkerbelle-palette-button>{{ MOD_KEY }}K</button>
+        <button type="button" :class="paneOpen() ? 'text-neutral-900 dark:text-neutral-100 bg-neutral-200/70 dark:bg-neutral-800' : ''" class="flex items-center justify-center shrink-0 h-7 w-7 text-neutral-500 hover:text-neutral-900 dark:hover:text-neutral-100 hover:bg-neutral-200/60 dark:hover:bg-neutral-800/70 rounded-md" :aria-pressed="paneOpen() ? 'true' : 'false'" aria-label="Show or hide the side pane" :title="'Side pane (' + MOD + '+J)'" @click="togglePane()" data-tinkerbelle-pane-toggle><span class="inline-block h-4 w-4 i-hugeicons-sidebar-right" aria-hidden="true"></span></button>
+        <button type="button" class="flex gap-1.5 items-center shrink-0 ml-1 pl-2.5 pr-2 h-7 font-medium text-[12px] text-white dark:text-neutral-900 bg-neutral-900 dark:bg-neutral-100 rounded-md disabled:opacity-40 transition-transform active:scale-[0.98]" :disabled="running() || !connected()" @click="runAll()" data-tinkerbelle-run>{{ running() ? 'Running' : 'Run' }}<span class="font-mono font-normal text-[10px] opacity-60">{{ RUN_KEYS }}</span></button>
       </header>
 
       @if(notice())
-        <p class="flex gap-2 items-center px-3 py-1.5 text-[12px] text-neutral-600 dark:text-neutral-300 border-b border-neutral-200/70 dark:border-neutral-800/70" role="status" data-fettler-notice><span class="shrink-0 h-1.5 w-1.5 bg-amber-500 rounded-full" aria-hidden="true"></span><span class="flex-1 min-w-0">{{ notice() }}</span><button type="button" class="shrink-0 text-neutral-400 hover:text-neutral-900 dark:hover:text-neutral-100" aria-label="Dismiss" @click="notice.set('')"><span class="inline-block h-3 w-3 i-hugeicons-cancel-01" aria-hidden="true"></span></button></p>
+        <p class="flex gap-2 items-center px-3 py-1.5 text-[12px] text-neutral-600 dark:text-neutral-300 border-b border-neutral-200/70 dark:border-neutral-800/70" role="status" data-tinkerbelle-notice><span class="shrink-0 h-1.5 w-1.5 bg-amber-500 rounded-full" aria-hidden="true"></span><span class="flex-1 min-w-0">{{ notice() }}</span><button type="button" class="shrink-0 text-neutral-400 hover:text-neutral-900 dark:hover:text-neutral-100" aria-label="Dismiss" @click="notice.set('')"><span class="inline-block h-3 w-3 i-hugeicons-cancel-01" aria-hidden="true"></span></button></p>
       @endif
 
       @if(confirming())
-        <div class="flex gap-3 items-center px-3 py-2 text-red-900 text-xs dark:text-red-100 bg-red-50 dark:bg-red-500/15 border-b border-red-200 dark:border-red-500/30" role="alert" data-fettler-confirm>
+        <div class="flex gap-3 items-center px-3 py-2 text-red-900 text-xs dark:text-red-100 bg-red-50 dark:bg-red-500/15 border-b border-red-200 dark:border-red-500/30" role="alert" data-tinkerbelle-confirm>
           <span class="flex-1">This will run on <strong>{{ environmentLabel() }}</strong> at {{ whereLabel() || targetLabel() }}. Anything it writes is written for real.</span>
           <button type="button" class="px-2.5 h-6 text-xs bg-white dark:bg-neutral-900 border border-red-300 rounded dark:border-red-500/40" @click="confirming.set('')">Cancel</button>
-          <button type="button" class="px-2.5 h-6 font-medium text-white text-xs bg-red-600 rounded" @click="guarded(confirming())" data-fettler-confirm-run>Run on {{ environmentLabel() }}</button>
+          <button type="button" class="px-2.5 h-6 font-medium text-white text-xs bg-red-600 rounded" @click="guarded(confirming())" data-tinkerbelle-confirm-run>Run on {{ environmentLabel() }}</button>
         </div>
       @endif
 
       <main class="flex flex-1 min-h-0">
-        <section class="flex-1 min-h-0 min-w-0" aria-label="Code" :style="editorStyle()" data-fettler-editor>
+        <section class="flex-1 min-h-0 min-w-0" aria-label="Code" :style="editorStyle()" data-tinkerbelle-editor>
           <CodeEditor
             language="typescript"
             height="100%"
@@ -1138,10 +1138,10 @@ void loadUpdate()
           />
         </section>
 
-        <aside :class="paneOpen() ? 'flex flex-col shrink-0 min-h-0 border-l border-neutral-200/70 dark:border-neutral-800/70 fettler-pane' : 'hidden'" aria-label="Result, log, assistant and connection" data-fettler-pane>
+        <aside :class="paneOpen() ? 'flex flex-col shrink-0 min-h-0 border-l border-neutral-200/70 dark:border-neutral-800/70 tinkerbelle-pane' : 'hidden'" aria-label="Result, log, assistant and connection" data-tinkerbelle-pane>
           <div class="flex gap-0.5 items-center shrink-0 px-2 h-9 border-b border-neutral-200/70 dark:border-neutral-800/70" role="tablist">
             @foreach(PANE_VIEWS as item)
-              <button type="button" role="tab" :aria-selected="view() === item.id ? 'true' : 'false'" :class="view() === item.id ? 'px-2 h-6 text-[12px] font-medium text-neutral-900 dark:text-neutral-100' : 'px-2 h-6 text-[12px] text-neutral-400 hover:text-neutral-700 dark:hover:text-neutral-200'" @click="showView(item.id)" :data-fettler-view="item.id">{{ item.title }}</button>
+              <button type="button" role="tab" :aria-selected="view() === item.id ? 'true' : 'false'" :class="view() === item.id ? 'px-2 h-6 text-[12px] font-medium text-neutral-900 dark:text-neutral-100' : 'px-2 h-6 text-[12px] text-neutral-400 hover:text-neutral-700 dark:hover:text-neutral-200'" @click="showView(item.id)" :data-tinkerbelle-view="item.id">{{ item.title }}</button>
             @endforeach
             @if(view() === 'result' && duration())
               <span class="ml-auto pr-1 font-mono text-[11px] text-neutral-400">{{ duration() }}</span>
@@ -1154,12 +1154,12 @@ void loadUpdate()
                 <option value="error">Errors</option>
               </select>
               <input type="text" :value="logQuery()" @input="logQuery.set($event.target.value)" placeholder="Filter" aria-label="Filter log lines" class="px-2 h-6 w-28 text-[11px] bg-neutral-100 dark:bg-neutral-900 rounded focus:outline-none">
-              <span :class="logFollowing() ? 'bg-emerald-500' : 'bg-neutral-300 dark:bg-neutral-600'" class="h-1.5 w-1.5 rounded-full" :title="logFollowing() ? 'Following' : 'Stopped'" data-fettler-log-state></span>
+              <span :class="logFollowing() ? 'bg-emerald-500' : 'bg-neutral-300 dark:bg-neutral-600'" class="h-1.5 w-1.5 rounded-full" :title="logFollowing() ? 'Following' : 'Stopped'" data-tinkerbelle-log-state></span>
             @endif
           </div>
 
           @if(view() === 'logs')
-            <div class="overflow-y-auto flex-1 p-2 min-h-0 font-mono leading-5 text-[11px]" data-fettler-logs>
+            <div class="overflow-y-auto flex-1 p-2 min-h-0 font-mono leading-5 text-[11px]" data-tinkerbelle-logs>
               @if(logNote())
                 <p class="px-1 text-red-700 dark:text-red-300" role="alert">{{ logNote() }}</p>
               @endif
@@ -1173,7 +1173,7 @@ void loadUpdate()
           @endif
 
           @if(view() === 'info')
-            <div class="overflow-y-auto flex-1 p-3 space-y-3 min-h-0" data-fettler-info>
+            <div class="overflow-y-auto flex-1 p-3 space-y-3 min-h-0" data-tinkerbelle-info>
               @if(!connected())
                 <p class="text-neutral-500 text-sm">Open a project to see what it is running on.</p>
               @endif
@@ -1199,7 +1199,7 @@ void loadUpdate()
           @endif
 
           @if(view() === 'assistant')
-            <div class="flex flex-1 flex-col min-h-0" data-fettler-assistant>
+            <div class="flex flex-1 flex-col min-h-0" data-tinkerbelle-assistant>
               <div class="overflow-y-auto flex-1 p-3 space-y-3 min-h-0">
                 @if(!ai().enabled || !ai().hasKey)
                   <div class="p-3 text-neutral-600 text-sm dark:text-neutral-300 bg-white dark:bg-neutral-900 border border-neutral-200 rounded-lg dark:border-neutral-800">
@@ -1235,39 +1235,39 @@ void loadUpdate()
           @endif
 
           @if(output())
-            <article class="border-b border-neutral-200/70 dark:border-neutral-800/70" data-fettler-output>
+            <article class="border-b border-neutral-200/70 dark:border-neutral-800/70" data-tinkerbelle-output>
               <h2 class="pt-2.5 px-3 text-[10px] text-neutral-400 tracking-wide uppercase">Output</h2>
               <pre class="overflow-x-auto p-3 font-mono text-xs whitespace-pre-wrap">{{ output() }}</pre>
             </article>
           @endif
 
           @if(result())
-            <article class="border-b border-neutral-200/70 dark:border-neutral-800/70" data-fettler-result>
+            <article class="border-b border-neutral-200/70 dark:border-neutral-800/70" data-tinkerbelle-result>
               <h2 class="flex gap-1 items-center pt-2 px-3 text-[11px] text-neutral-500">
                 @if(inspectable())
-                  <button type="button" :class="resultView() === 'tree' ? VIEW_ON : VIEW_OFF" @click="resultView.set('tree')" data-fettler-view-tree>Inspect</button>
+                  <button type="button" :class="resultView() === 'tree' ? VIEW_ON : VIEW_OFF" @click="resultView.set('tree')" data-tinkerbelle-view-tree>Inspect</button>
                 @endif
                 @if(grid())
-                  <button type="button" :class="resultView() === 'table' ? VIEW_ON : VIEW_OFF" @click="resultView.set('table')" data-fettler-view-table>Table</button>
+                  <button type="button" :class="resultView() === 'table' ? VIEW_ON : VIEW_OFF" @click="resultView.set('table')" data-tinkerbelle-view-table>Table</button>
                 @endif
                 @if(resultModels().length)
-                  <button type="button" :class="resultView() === 'graph' ? VIEW_ON : VIEW_OFF" @click="showGraph()" data-fettler-view-graph>Relations</button>
+                  <button type="button" :class="resultView() === 'graph' ? VIEW_ON : VIEW_OFF" @click="showGraph()" data-tinkerbelle-view-graph>Relations</button>
                 @endif
                 @if(previewMarkup())
-                  <button type="button" :class="resultView() === 'preview' ? VIEW_ON : VIEW_OFF" @click="resultView.set('preview')" data-fettler-view-preview>Preview</button>
+                  <button type="button" :class="resultView() === 'preview' ? VIEW_ON : VIEW_OFF" @click="resultView.set('preview')" data-tinkerbelle-view-preview>Preview</button>
                 @endif
-                <button type="button" :class="resultView() === 'text' ? VIEW_ON : VIEW_OFF" @click="resultView.set('text')" data-fettler-view-text>Text</button>
+                <button type="button" :class="resultView() === 'text' ? VIEW_ON : VIEW_OFF" @click="resultView.set('text')" data-tinkerbelle-view-text>Text</button>
               </h2>
 
               @if(resultView() === 'tree' && inspectable())
-                <div data-fettler-tree>
+                <div data-tinkerbelle-tree>
                   <JsonTree label="Result" height="calc(100vh - 9.5rem)" depth="2" :tinker="lastValue()" @open="openNode($event)" />
                 </div>
               @endif
 
               @if(resultView() === 'table' && grid())
-                <div data-fettler-table>
-                  <DataGrid label="Result rows" fileName="fettler-result" height="calc(100vh - 9.5rem)" :rows="grid().rows" :columns="grid().columns" />
+                <div data-tinkerbelle-table>
+                  <DataGrid label="Result rows" fileName="tinkerbelle-result" height="calc(100vh - 9.5rem)" :rows="grid().rows" :columns="grid().columns" />
                   @if(grid().more)
                     <p class="px-3 py-1.5 text-[11px] text-neutral-400 border-neutral-200 border-t dark:border-neutral-800">{{ grid().more }} more rows were not sent.</p>
                   @endif
@@ -1275,9 +1275,9 @@ void loadUpdate()
               @endif
 
               @if(resultView() === 'graph' && resultModels().length)
-                <div data-fettler-graph>
+                <div data-tinkerbelle-graph>
                   @if(relations().nodes.length)
-                    <GraphView id="fettler-relations" label="Model relations" height="calc(100vh - 9.5rem)" :nodes="relations().nodes" :edges="relations().edges" @expand="expandRelations($event)" />
+                    <GraphView id="tinkerbelle-relations" label="Model relations" height="calc(100vh - 9.5rem)" :nodes="relations().nodes" :edges="relations().edges" @expand="expandRelations($event)" />
                   @else
                     <p class="p-3 text-neutral-500 text-xs dark:text-neutral-400">{{ modelList() ? 'This session lists no relations for that model.' : 'Reading the models...' }}</p>
                   @endif
@@ -1285,7 +1285,7 @@ void loadUpdate()
               @endif
 
               @if(resultView() === 'preview' && previewMarkup())
-                <div data-fettler-preview>
+                <div data-tinkerbelle-preview>
                   <PreviewFrame title="Rendered preview" height="calc(100vh - 9.5rem)" :html="previewMarkup()" />
                 </div>
               @endif
@@ -1297,14 +1297,14 @@ void loadUpdate()
           @endif
 
           @if(failure())
-            <article class="bg-red-50/60 dark:bg-red-500/10 border-b border-red-200/70 dark:border-red-500/20" data-fettler-error>
+            <article class="bg-red-50/60 dark:bg-red-500/10 border-b border-red-200/70 dark:border-red-500/20" data-tinkerbelle-error>
               <h2 class="pt-2.5 px-3 text-[10px] text-red-600 tracking-wide uppercase dark:text-red-400">Error</h2>
               <pre class="overflow-x-auto p-3 font-mono text-red-800 text-xs whitespace-pre-wrap dark:text-red-200">{{ failure() }}</pre>
             </article>
           @endif
 
           @if(queries().length)
-            <article class="border-b border-neutral-200/70 dark:border-neutral-800/70" data-fettler-queries>
+            <article class="border-b border-neutral-200/70 dark:border-neutral-800/70" data-tinkerbelle-queries>
               <h2 class="pt-2.5 px-3 text-[10px] text-neutral-400 tracking-wide uppercase">Queries ({{ queries().length }})</h2>
               <ul class="divide-neutral-200 divide-y dark:divide-neutral-800">
                 @foreach(queries() as query)
@@ -1317,22 +1317,22 @@ void loadUpdate()
         </aside>
       </main>
 
-      <footer class="flex gap-4 items-center shrink-0 px-3 h-6 text-[11px] text-neutral-400 border-neutral-200/70 border-t dark:border-neutral-800/70" data-fettler-status>
-        <span class="min-w-0 font-mono truncate" data-fettler-where>{{ whereLabel() }}</span>
+      <footer class="flex gap-4 items-center shrink-0 px-3 h-6 text-[11px] text-neutral-400 border-neutral-200/70 border-t dark:border-neutral-800/70" data-tinkerbelle-status>
+        <span class="min-w-0 font-mono truncate" data-tinkerbelle-where>{{ whereLabel() }}</span>
         @if(updateReady())
-          <button type="button" class="flex gap-1.5 items-center shrink-0 text-neutral-700 dark:text-neutral-200 hover:text-neutral-900 dark:hover:text-white disabled:opacity-50" :disabled="updateBusy()" @click="installUpdate()" data-fettler-update><span class="h-1.5 w-1.5 bg-sky-500 rounded-full" aria-hidden="true"></span>{{ updateBusy() ? 'Updating' : 'Update to ' + update().version }}</button>
+          <button type="button" class="flex gap-1.5 items-center shrink-0 text-neutral-700 dark:text-neutral-200 hover:text-neutral-900 dark:hover:text-white disabled:opacity-50" :disabled="updateBusy()" @click="installUpdate()" data-tinkerbelle-update><span class="h-1.5 w-1.5 bg-sky-500 rounded-full" aria-hidden="true"></span>{{ updateBusy() ? 'Updating' : 'Update to ' + update().version }}</button>
         @endif
-        <span class="shrink-0 ml-auto" :class="problems() ? 'text-red-600 dark:text-red-400' : ''" data-fettler-problems>{{ problems() === 0 ? 'No problems' : problems() === 1 ? '1 problem' : problems() + ' problems' }}</span>
+        <span class="shrink-0 ml-auto" :class="problems() ? 'text-red-600 dark:text-red-400' : ''" data-tinkerbelle-problems>{{ problems() === 0 ? 'No problems' : problems() === 1 ? '1 problem' : problems() + ' problems' }}</span>
         <span class="shrink-0 font-mono">{{ caretLabel() }}</span>
         <span class="shrink-0">TypeScript</span>
       </footer>
 
       @if(licenseOpen())
-        <div class="flex fixed inset-0 z-40 items-start justify-center pt-20 bg-black/30" @click.self="licenseOpen.set(false)" data-fettler-license>
-          <div class="max-w-md w-full bg-white dark:bg-neutral-900 border border-neutral-200 rounded-xl dark:border-neutral-700 fettler-float" role="dialog" aria-modal="true" aria-label="License">
+        <div class="flex fixed inset-0 z-40 items-start justify-center pt-20 bg-black/30" @click.self="licenseOpen.set(false)" data-tinkerbelle-license>
+          <div class="max-w-md w-full bg-white dark:bg-neutral-900 border border-neutral-200 rounded-xl dark:border-neutral-700 tinkerbelle-float" role="dialog" aria-modal="true" aria-label="License">
             <div class="grid gap-3 p-4">
-              <p class="text-sm" data-fettler-license-summary>{{ licenseSummary() }}</p>
-              <p class="text-[11px] text-neutral-500">Fettler {{ license().version }}, built {{ license().buildDate }}. A license covers two devices. Local projects and the sandbox are free.</p>
+              <p class="text-sm" data-tinkerbelle-license-summary>{{ licenseSummary() }}</p>
+              <p class="text-[11px] text-neutral-500">TinkerBelle {{ license().version }}, built {{ license().buildDate }}. A license covers two devices. Local projects and the sandbox are free.</p>
               <label class="flex flex-col gap-1 text-[11px] text-neutral-500">License key
                 <input type="text" :value="licenseKey()" @input="licenseKey.set($event.target.value)" @keydown.enter="activateLicense()" autocomplete="off" spellcheck="false" class="px-2 h-8 font-mono text-neutral-900 text-xs dark:text-neutral-100 bg-white dark:bg-neutral-950 border border-neutral-200 rounded-md dark:border-neutral-700 focus:outline-none">
               </label>
@@ -1359,13 +1359,13 @@ void loadUpdate()
       @endif
 
       @if(mcpOpen())
-        <div class="flex fixed inset-0 z-40 items-start justify-center pt-20 bg-black/30" @click.self="mcpOpen.set(false)" data-fettler-mcp>
-          <div class="max-w-lg w-full bg-white dark:bg-neutral-900 border border-neutral-200 rounded-xl dark:border-neutral-700 fettler-float" role="dialog" aria-modal="true" aria-label="MCP settings">
+        <div class="flex fixed inset-0 z-40 items-start justify-center pt-20 bg-black/30" @click.self="mcpOpen.set(false)" data-tinkerbelle-mcp>
+          <div class="max-w-lg w-full bg-white dark:bg-neutral-900 border border-neutral-200 rounded-xl dark:border-neutral-700 tinkerbelle-float" role="dialog" aria-modal="true" aria-label="MCP settings">
             <div class="grid gap-3 p-4">
-              <p class="text-sm">Let an AI tool such as Claude or Cursor run code through Fettler, in the connections you have opened. It works while Fettler is open.</p>
+              <p class="text-sm">Let an AI tool such as Claude or Cursor run code through TinkerBelle, in the connections you have opened. It works while TinkerBelle is open.</p>
               <p class="text-[11px] text-neutral-500">A production connection is refused unless the tool is told to confirm it. Turning this on makes a new token and ends the old one.</p>
               @if(mcp().enabled)
-                <pre class="overflow-x-auto p-3 font-mono text-[11px] bg-neutral-100 dark:bg-neutral-950 border border-neutral-200 rounded-md dark:border-neutral-800" data-fettler-mcp-config>{{ mcpConfig() }}</pre>
+                <pre class="overflow-x-auto p-3 font-mono text-[11px] bg-neutral-100 dark:bg-neutral-950 border border-neutral-200 rounded-md dark:border-neutral-800" data-tinkerbelle-mcp-config>{{ mcpConfig() }}</pre>
                 @if(!mcp().token)
                   <p class="text-[11px] text-neutral-500">The token was shown once when this was turned on. Turn it off and on again for a new one.</p>
                 @endif
@@ -1385,10 +1385,10 @@ void loadUpdate()
       @endif
 
       @if(aiOpen())
-        <div class="flex fixed inset-0 z-40 items-start justify-center pt-20 bg-black/30" @click.self="aiOpen.set(false)" data-fettler-ai-settings>
-          <div class="max-w-md w-full bg-white dark:bg-neutral-900 border border-neutral-200 rounded-xl dark:border-neutral-700 fettler-float" role="dialog" aria-modal="true" aria-label="AI settings">
+        <div class="flex fixed inset-0 z-40 items-start justify-center pt-20 bg-black/30" @click.self="aiOpen.set(false)" data-tinkerbelle-ai-settings>
+          <div class="max-w-md w-full bg-white dark:bg-neutral-900 border border-neutral-200 rounded-xl dark:border-neutral-700 tinkerbelle-float" role="dialog" aria-modal="true" aria-label="AI settings">
             <div class="grid gap-3 p-4">
-              <label class="flex gap-2 items-center text-sm"><input type="checkbox" :checked="ai().enabled" @change="setAi('enabled', $event.target.checked)"> Use AI in Fettler</label>
+              <label class="flex gap-2 items-center text-sm"><input type="checkbox" :checked="ai().enabled" @change="setAi('enabled', $event.target.checked)"> Use AI in TinkerBelle</label>
               <label class="flex flex-col gap-1 text-[11px] text-neutral-500">Provider
                 <select :value="ai().provider" @change="setAi('provider', $event.target.value)" class="px-2 h-8 text-neutral-900 text-xs dark:text-neutral-100 bg-white dark:bg-neutral-950 border border-neutral-200 rounded-md dark:border-neutral-700">
                   <option value="anthropic">Anthropic</option>
@@ -1424,14 +1424,14 @@ void loadUpdate()
       @endif
 
       @if(connectOpen())
-        <div class="flex fixed inset-0 z-40 items-start justify-center pt-16 bg-black/30" @click.self="connectOpen.set(false)" data-fettler-connect>
-          <div class="max-w-lg w-full bg-white dark:bg-neutral-900 border border-neutral-200 rounded-xl dark:border-neutral-700 fettler-float" role="dialog" aria-modal="true" aria-label="Connect to a remote target">
+        <div class="flex fixed inset-0 z-40 items-start justify-center pt-16 bg-black/30" @click.self="connectOpen.set(false)" data-tinkerbelle-connect>
+          <div class="max-w-lg w-full bg-white dark:bg-neutral-900 border border-neutral-200 rounded-xl dark:border-neutral-700 tinkerbelle-float" role="dialog" aria-modal="true" aria-label="Connect to a remote target">
             <div class="flex gap-1 p-2 border-b border-neutral-200 dark:border-neutral-800" role="tablist">
               <button type="button" role="tab" :aria-selected="connectKind() === 'ssh' ? 'true' : 'false'" :class="connectKind() === 'ssh' ? 'px-3 h-7 text-xs font-medium bg-neutral-100 dark:bg-neutral-800 rounded-md' : 'px-3 h-7 text-xs text-neutral-500 rounded-md'" @click="connectKind.set('ssh'); found.set([])">SSH</button>
               <button type="button" role="tab" :aria-selected="connectKind() === 'docker' ? 'true' : 'false'" :class="connectKind() === 'docker' ? 'px-3 h-7 text-xs font-medium bg-neutral-100 dark:bg-neutral-800 rounded-md' : 'px-3 h-7 text-xs text-neutral-500 rounded-md'" @click="connectKind.set('docker'); found.set([])">Docker</button>
               <button type="button" role="tab" :aria-selected="connectKind() === 'kube' ? 'true' : 'false'" :class="connectKind() === 'kube' ? 'px-3 h-7 text-xs font-medium bg-neutral-100 dark:bg-neutral-800 rounded-md' : 'px-3 h-7 text-xs text-neutral-500 rounded-md'" @click="connectKind.set('kube'); found.set([])">Kubernetes</button>
             </div>
-            <div class="pt-3 px-4" data-fettler-boxes>
+            <div class="pt-3 px-4" data-tinkerbelle-boxes>
               <div class="flex gap-2 items-center">
                 <button type="button" class="px-2.5 h-7 text-xs border border-neutral-200 rounded-md dark:border-neutral-700 disabled:opacity-50" :disabled="boxesLoading()" @click="loadBoxes()">{{ boxesLoading() ? 'Asking the project' : 'Servers this project is deployed to' }}</button>
                 <span class="min-w-0 text-[11px] text-neutral-500 truncate">{{ boxesNote() }}</span>
@@ -1490,30 +1490,30 @@ void loadUpdate()
               </div>
             </div>
             @if(found().length)
-              <ul class="overflow-y-auto mb-3 mx-4 max-h-40 border border-neutral-200 divide-neutral-200 divide-y rounded-md dark:border-neutral-700 dark:divide-neutral-800" data-fettler-found>
+              <ul class="overflow-y-auto mb-3 mx-4 max-h-40 border border-neutral-200 divide-neutral-200 divide-y rounded-md dark:border-neutral-700 dark:divide-neutral-800" data-tinkerbelle-found>
                 @foreach(found() as item)
                   <li class="flex gap-3 px-3 py-1.5 font-mono text-xs hover:bg-neutral-100 dark:hover:bg-neutral-800 cursor-default" @click="pick(item)"><span>{{ item.value }}</span><span class="ml-auto text-neutral-400 truncate">{{ item.hint }}</span></li>
                 @endforeach
               </ul>
             @endif
-            <p class="pb-3 px-4 text-[11px] text-neutral-500">Keys come from your SSH agent. Fettler never asks for a password and writes nothing on the target.</p>
+            <p class="pb-3 px-4 text-[11px] text-neutral-500">Keys come from your SSH agent. TinkerBelle never asks for a password and writes nothing on the target.</p>
             <div class="flex gap-2 justify-end px-4 py-3 border-neutral-200 border-t dark:border-neutral-800">
               <button type="button" class="px-3 h-8 text-xs border border-neutral-200 rounded-md dark:border-neutral-700" @click="connectOpen.set(false)">Cancel</button>
-              <button type="button" class="px-3 h-8 font-medium text-white text-xs dark:text-neutral-900 bg-neutral-900 dark:bg-neutral-100 rounded-md disabled:opacity-50" :disabled="connecting()" @click="connectRemote()" data-fettler-connect-go>{{ connecting() ? 'Connecting' : 'Connect' }}</button>
+              <button type="button" class="px-3 h-8 font-medium text-white text-xs dark:text-neutral-900 bg-neutral-900 dark:bg-neutral-100 rounded-md disabled:opacity-50" :disabled="connecting()" @click="connectRemote()" data-tinkerbelle-connect-go>{{ connecting() ? 'Connecting' : 'Connect' }}</button>
             </div>
           </div>
         </div>
       @endif
 
       @if(paletteOpen())
-        <div class="flex fixed inset-0 z-40 items-start justify-center pt-24 bg-black/30" @click.self="closePalette()" data-fettler-palette>
-          <div class="overflow-hidden max-w-xl w-full bg-white dark:bg-neutral-900 border border-neutral-200 rounded-xl dark:border-neutral-700 fettler-float" role="dialog" aria-modal="true" aria-label="Command palette">
+        <div class="flex fixed inset-0 z-40 items-start justify-center pt-24 bg-black/30" @click.self="closePalette()" data-tinkerbelle-palette>
+          <div class="overflow-hidden max-w-xl w-full bg-white dark:bg-neutral-900 border border-neutral-200 rounded-xl dark:border-neutral-700 tinkerbelle-float" role="dialog" aria-modal="true" aria-label="Command palette">
             <input
               ref="paletteInput"
               type="text"
               role="combobox"
               aria-expanded="true"
-              aria-controls="fettler-palette-list"
+              aria-controls="tinkerbelle-palette-list"
               aria-label="Search commands, projects, snippets and history"
               placeholder="Search commands, projects, snippets and history"
               :value="paletteQuery()"
@@ -1521,7 +1521,7 @@ void loadUpdate()
               @keydown="paletteKey($event)"
               class="px-4 h-12 w-full text-sm bg-transparent border-b border-neutral-200 dark:border-neutral-800 focus:outline-none"
             >
-            <ul id="fettler-palette-list" role="listbox" class="overflow-y-auto py-1 max-h-96">
+            <ul id="tinkerbelle-palette-list" role="listbox" class="overflow-y-auto py-1 max-h-96">
               @foreach(paletteItems() as item, index)
                 <li
                   role="option"

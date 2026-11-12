@@ -51,7 +51,7 @@ const siteUrl = appUrl && !/^https?:\/\//.test(appUrl) ? `https://${appUrl}` : a
 
 const config: BlogConfig = {
   subdomain: 'blog',
-  title: `${env.APP_NAME || 'Fettler'} Blog`,
+  title: `${env.APP_NAME || 'TinkerBelle'} Blog`,
   description: '',
   postsPerPage: 10,
   // `enableComments` and `enableSearch` are declared but not yet implemented
@@ -61,7 +61,7 @@ const config: BlogConfig = {
   enableRss: true,
   enableSitemap: true,
   enableSearch: true,
-  author: env.APP_NAME || 'Fettler',
+  author: env.APP_NAME || 'TinkerBelle',
   ...(siteUrl && { url: siteUrl }),
   nav: [
     { text: 'Home', link: '/' },

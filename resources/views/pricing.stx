@@ -7,8 +7,8 @@ import { pricingFaqs } from '~/resources/data/faqs'
 const canonicalPath = '/pricing'
 const standardPrice = formatCents(planById('standard')!.priceCents)
 const lifetimePrice = formatCents(planById('lifetime')!.priceCents)
-const pageTitle = 'Pricing - Fettler'
-const pageDescription = `Fettler is free for local projects and the sandbox. Pro is ${standardPrice} with a year of updates or ${lifetimePrice} for a lifetime license.`
+const pageTitle = 'Pricing - TinkerBelle'
+const pageDescription = `TinkerBelle is free for local projects and the sandbox. Pro is ${standardPrice} with a year of updates or ${lifetimePrice} for a lifetime license.`
 const checkoutOpen = CHECKOUT_OPEN
 </script>
 <section class="mx-auto pb-10 pt-12 px-4 md:pt-20 md:px-8 max-w-6xl">
@@ -17,7 +17,7 @@ const checkoutOpen = CHECKOUT_OPEN
   @if(!checkoutOpen)
     <p class="flex gap-2 items-start mt-6 max-w-[60ch] font-medium text-accent-ink rise" style="--i: 2">
       <span class="shrink-0 mt-0.5 size-5 i-hugeicons-wrench-01" aria-hidden="true"></span>
-      Fettler is in development, so nothing is on sale yet. These are the prices checkout will open with.
+      TinkerBelle is in development, so nothing is on sale yet. These are the prices checkout will open with.
     </p>
   @endif
 </section>

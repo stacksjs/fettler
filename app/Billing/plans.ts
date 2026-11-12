@@ -1,5 +1,5 @@
 /**
- * Fettler's plans: the one list the pricing page reads, and the one checkout
+ * TinkerBelle's plans: the one list the pricing page reads, and the one checkout
  * and the desktop app will read when they exist. Prices are integer cents.
  *
  * Free covers local projects and the sandbox. Pro is one product sold two
@@ -30,7 +30,7 @@ export interface Plan {
   updateYears?: number
 }
 
-export const PRODUCT_NAME = 'Fettler'
+export const PRODUCT_NAME = 'TinkerBelle'
 
 /**
  * False until there is a build to sell. While it is false the pricing page

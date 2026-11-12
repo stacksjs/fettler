@@ -92,14 +92,14 @@ function runSnippet() {
 </section>
 
 <style>
-  .fettler .hero-title { text-wrap: balance; }
-  .fettler .demo .demo-window { box-shadow: var(--shadow); }
-  .fettler .demo .run-button { padding: .35rem .7rem; font-size: .8125rem; }
+  .tinkerbelle .hero-title { text-wrap: balance; }
+  .tinkerbelle .demo .demo-window { box-shadow: var(--shadow); }
+  .tinkerbelle .demo .run-button { padding: .35rem .7rem; font-size: .8125rem; }
 
   /* Two identical animations, so switching the name restarts it on each run. */
   @media (prefers-reduced-motion: no-preference) {
-    .fettler .demo:has(.run-button[data-run='a']) .demo-step { animation: demo-run-a .5s cubic-bezier(.16, 1, .3, 1) both; animation-delay: calc(120ms + var(--step) * 260ms); }
-    .fettler .demo:has(.run-button[data-run='b']) .demo-step { animation: demo-run-b .5s cubic-bezier(.16, 1, .3, 1) both; animation-delay: calc(120ms + var(--step) * 260ms); }
+    .tinkerbelle .demo:has(.run-button[data-run='a']) .demo-step { animation: demo-run-a .5s cubic-bezier(.16, 1, .3, 1) both; animation-delay: calc(120ms + var(--step) * 260ms); }
+    .tinkerbelle .demo:has(.run-button[data-run='b']) .demo-step { animation: demo-run-b .5s cubic-bezier(.16, 1, .3, 1) both; animation-delay: calc(120ms + var(--step) * 260ms); }
     @keyframes demo-run-a { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: none; } }
     @keyframes demo-run-b { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: none; } }
   }

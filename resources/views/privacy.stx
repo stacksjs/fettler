@@ -2,15 +2,15 @@
 @section('content')
 <script server>
 const canonicalPath = '/privacy'
-const pageTitle = 'Privacy - Fettler'
-const pageDescription = 'What this site and the Fettler app do with your data, as of the pre-release site.'
+const pageTitle = 'Privacy - TinkerBelle'
+const pageDescription = 'What this site and the TinkerBelle app do with your data, as of the pre-release site.'
 const updated = 'November 11, 2026'
 </script>
 <article class="mx-auto pb-8 pt-12 px-4 md:pt-20 md:px-8 max-w-3xl">
   <h1 class="font-semibold leading-[1.05] text-4xl text-ink tracking-tighter md:text-5xl">Privacy</h1>
   <p class="mt-5 text-muted">Last updated {{ updated }}.</p>
   <div class="prose">
-    <p>Fettler is in development. This page describes what is true today and names what will be added before the first beta and before checkout opens. It will be rewritten as each of those happens.</p>
+    <p>TinkerBelle is in development. This page describes what is true today and names what will be added before the first beta and before checkout opens. It will be rewritten as each of those happens.</p>
 
     <h2>This site, today</h2>
     <ul>
@@ -22,8 +22,8 @@ const updated = 'November 11, 2026'
     <h2>The app</h2>
     <ul>
       <li>The macOS beta has no analytics and no crash reporting.</li>
-      <li>It asks fettler.org whether a newer version exists. That request carries the app's version, its release channel, the operating system and the processor type, and nothing about you, your projects or your code.</li>
-      <li>Fettler runs your code against your own app, on your machine or on a target you connect it to. Running a snippet on a remote target writes nothing on that server.</li>
+      <li>It asks this site whether a newer version exists. That request carries the app's version, its release channel, the operating system and the processor type, and nothing about you, your projects or your code.</li>
+      <li>TinkerBelle runs your code against your own app, on your machine or on a target you connect it to. Running a snippet on a remote target writes nothing on that server.</li>
       <li>AI features use an API key that you bring from your own provider. What you send to that provider is covered by your agreement with them.</li>
     </ul>
 

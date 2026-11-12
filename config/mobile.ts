@@ -3,10 +3,10 @@ import { env } from '@stacksjs/env'
 
 export default {
   ios: {
-    appName: env.APP_NAME ?? 'Fettler',
+    appName: env.APP_NAME ?? 'TinkerBelle',
     // A placeholder the App Store rejects on purpose: replace it with your own
     // reverse-DNS id before the first build you mean to ship.
-    bundleId: 'com.example.fettler',
+    bundleId: 'com.example.tinkerbelle',
     version: '1.0.0',
     buildNumber: '1',
     deploymentTarget: '16.0',
