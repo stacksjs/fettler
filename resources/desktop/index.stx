@@ -778,9 +778,9 @@ void loadWorkspace()
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>Fettler</title>
   </head>
-  <body class="h-screen overflow-hidden antialiased text-neutral-900 dark:text-neutral-100 bg-neutral-50 dark:bg-neutral-950">
+  <body class="overflow-hidden h-screen antialiased text-neutral-900 dark:text-neutral-100 bg-neutral-50 dark:bg-neutral-950">
     <div :class="themeClass()" class="flex flex-col h-screen text-neutral-900 dark:text-neutral-100 bg-neutral-50 dark:bg-neutral-950" data-fettler-app @keydown="appKey($event)">
-      <header class="flex gap-3 items-center px-3 h-11 border-b border-neutral-200 dark:border-neutral-800 shrink-0">
+      <header class="flex gap-3 items-center shrink-0 px-3 h-11 border-b border-neutral-200 dark:border-neutral-800">
         <span class="font-medium text-sm" data-fettler-target>{{ targetLabel() }}</span>
         @if(whereLabel())
           <span class="font-mono text-[11px] text-neutral-500" data-fettler-where>{{ whereLabel() }}</span>
@@ -795,38 +795,38 @@ void loadWorkspace()
           @keydown.enter="connectProject()"
           placeholder="Path to a Stacks project"
           aria-label="Project path"
-          class="flex-1 min-w-0 px-2 h-7 font-mono text-xs bg-white dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-800 rounded-md focus:outline-none focus:border-neutral-400"
+          class="flex-1 px-2 h-7 min-w-0 font-mono text-xs bg-white dark:bg-neutral-900 border border-neutral-200 rounded-md dark:border-neutral-800 focus:border-neutral-400 focus:outline-none"
           data-fettler-path
         >
-        <button type="button" class="px-2.5 h-7 text-xs bg-white dark:bg-neutral-900 hover:bg-neutral-100 dark:hover:bg-neutral-800 border border-neutral-200 dark:border-neutral-800 rounded-md disabled:opacity-50" :disabled="connecting()" @click="connectProject()" data-fettler-open>Open project</button>
-        <button type="button" class="px-2.5 h-7 text-xs bg-white dark:bg-neutral-900 hover:bg-neutral-100 dark:hover:bg-neutral-800 border border-neutral-200 dark:border-neutral-800 rounded-md disabled:opacity-50" :disabled="connecting()" @click="connect({ kind: 'sandbox' })" data-fettler-sandbox>Sandbox</button>
-        <button type="button" class="px-2.5 h-7 text-xs bg-white dark:bg-neutral-900 hover:bg-neutral-100 dark:hover:bg-neutral-800 border border-neutral-200 dark:border-neutral-800 rounded-md" @click="connectOpen.set(true)" data-fettler-remote>Remote</button>
-        <button type="button" class="px-2.5 h-7 text-neutral-500 text-xs bg-white dark:bg-neutral-900 hover:bg-neutral-100 dark:hover:bg-neutral-800 border border-neutral-200 dark:border-neutral-800 rounded-md" @click="openPalette()" aria-label="Open the command palette" data-fettler-palette-open>Cmd+K</button>
-        <button type="button" class="px-3 h-7 font-medium text-white text-xs bg-neutral-900 dark:bg-neutral-100 dark:text-neutral-900 rounded-md disabled:opacity-40" :disabled="running() || !connected()" @click="runAll()" data-fettler-run>{{ running() ? 'Running' : 'Run' }}</button>
+        <button type="button" class="px-2.5 h-7 text-xs bg-white dark:bg-neutral-900 hover:bg-neutral-100 dark:hover:bg-neutral-800 border border-neutral-200 rounded-md dark:border-neutral-800 disabled:opacity-50" :disabled="connecting()" @click="connectProject()" data-fettler-open>Open project</button>
+        <button type="button" class="px-2.5 h-7 text-xs bg-white dark:bg-neutral-900 hover:bg-neutral-100 dark:hover:bg-neutral-800 border border-neutral-200 rounded-md dark:border-neutral-800 disabled:opacity-50" :disabled="connecting()" @click="connect({ kind: 'sandbox' })" data-fettler-sandbox>Sandbox</button>
+        <button type="button" class="px-2.5 h-7 text-xs bg-white dark:bg-neutral-900 hover:bg-neutral-100 dark:hover:bg-neutral-800 border border-neutral-200 rounded-md dark:border-neutral-800" @click="connectOpen.set(true)" data-fettler-remote>Remote</button>
+        <button type="button" class="px-2.5 h-7 text-neutral-500 text-xs bg-white dark:bg-neutral-900 hover:bg-neutral-100 dark:hover:bg-neutral-800 border border-neutral-200 rounded-md dark:border-neutral-800" @click="openPalette()" aria-label="Open the command palette" data-fettler-palette-open>Cmd+K</button>
+        <button type="button" class="px-3 h-7 font-medium text-white text-xs dark:text-neutral-900 bg-neutral-900 dark:bg-neutral-100 rounded-md disabled:opacity-40" :disabled="running() || !connected()" @click="runAll()" data-fettler-run>{{ running() ? 'Running' : 'Run' }}</button>
       </header>
 
       @if(notice())
-        <p class="px-3 py-1.5 text-amber-800 text-xs dark:text-amber-300 bg-amber-50 dark:bg-amber-500/10 border-b border-amber-200 dark:border-amber-500/20" role="status" data-fettler-notice>{{ notice() }}</p>
+        <p class="px-3 py-1.5 text-amber-800 text-xs dark:text-amber-300 bg-amber-50 dark:bg-amber-500/10 border-amber-200 border-b dark:border-amber-500/20" role="status" data-fettler-notice>{{ notice() }}</p>
       @endif
 
       @if(confirming())
         <div class="flex gap-3 items-center px-3 py-2 text-red-900 text-xs dark:text-red-100 bg-red-50 dark:bg-red-500/15 border-b border-red-200 dark:border-red-500/30" role="alert" data-fettler-confirm>
           <span class="flex-1">This will run on <strong>{{ environmentLabel() }}</strong> at {{ whereLabel() || targetLabel() }}. Anything it writes is written for real.</span>
-          <button type="button" class="px-2.5 h-6 text-xs bg-white dark:bg-neutral-900 border border-red-300 dark:border-red-500/40 rounded" @click="confirming.set('')">Cancel</button>
+          <button type="button" class="px-2.5 h-6 text-xs bg-white dark:bg-neutral-900 border border-red-300 rounded dark:border-red-500/40" @click="confirming.set('')">Cancel</button>
           <button type="button" class="px-2.5 h-6 font-medium text-white text-xs bg-red-600 rounded" @click="guarded(confirming())" data-fettler-confirm-run>Run on {{ environmentLabel() }}</button>
         </div>
       @endif
 
-      <main class="flex-1 grid grid-cols-2 min-h-0">
-        <section class="flex flex-col min-h-0 min-w-0 border-r border-neutral-200 dark:border-neutral-800" aria-label="Code" :style="editorStyle()">
-          <div class="flex gap-1 items-center px-2 h-9 overflow-x-auto border-b border-neutral-200 dark:border-neutral-800 shrink-0" role="tablist" aria-label="Buffers" data-fettler-tabs>
+      <main class="grid flex-1 grid-cols-2 min-h-0">
+        <section class="flex flex-col min-h-0 min-w-0 border-neutral-200 border-r dark:border-neutral-800" aria-label="Code" :style="editorStyle()">
+          <div class="flex overflow-x-auto gap-1 items-center shrink-0 px-2 h-9 border-b border-neutral-200 dark:border-neutral-800" role="tablist" aria-label="Buffers" data-fettler-tabs>
             @foreach(tabs() as tab)
               <span :class="tab.id === activeTab() ? 'flex gap-1 items-center pl-2.5 pr-1 h-6 text-xs font-medium bg-neutral-200 dark:bg-neutral-800 rounded shrink-0' : 'flex gap-1 items-center pl-2.5 pr-1 h-6 text-xs text-neutral-500 rounded shrink-0'">
                 <button type="button" role="tab" :aria-selected="tab.id === activeTab() ? 'true' : 'false'" class="font-mono" @click="selectTab(tab.id)">{{ tab.id === activeTab() ? tabTitle({ code: code() }) : tabTitle(tab) }}</button>
                 <button type="button" class="px-1 text-neutral-400 hover:text-neutral-900 dark:hover:text-neutral-100 rounded" :aria-label="'Close ' + tabTitle(tab)" @click="closeTab(tab.id)">x</button>
               </span>
             @endforeach
-            <button type="button" class="px-2 h-6 text-neutral-500 text-sm rounded hover:bg-neutral-200 dark:hover:bg-neutral-800" aria-label="New buffer" @click="newTab()" data-fettler-new-tab>+</button>
+            <button type="button" class="px-2 h-6 text-neutral-500 text-sm hover:bg-neutral-200 dark:hover:bg-neutral-800 rounded" aria-label="New buffer" @click="newTab()" data-fettler-new-tab>+</button>
           </div>
           <div class="flex-1 min-h-0">
           <CodeEditor
@@ -850,30 +850,30 @@ void loadWorkspace()
         </section>
 
         <section class="flex flex-col min-h-0 min-w-0" aria-label="Result and logs">
-          <div class="flex gap-1 items-center px-2 h-9 border-b border-neutral-200 dark:border-neutral-800 shrink-0" role="tablist">
+          <div class="flex gap-1 items-center shrink-0 px-2 h-9 border-b border-neutral-200 dark:border-neutral-800" role="tablist">
             <button type="button" role="tab" :aria-selected="view() === 'result' ? 'true' : 'false'" :class="view() === 'result' ? 'px-2.5 h-6 text-xs font-medium bg-neutral-200 dark:bg-neutral-800 rounded' : 'px-2.5 h-6 text-xs text-neutral-500 rounded'" @click="showView('result')" data-fettler-tab-result>Result</button>
             <button type="button" role="tab" :aria-selected="view() === 'logs' ? 'true' : 'false'" :class="view() === 'logs' ? 'px-2.5 h-6 text-xs font-medium bg-neutral-200 dark:bg-neutral-800 rounded' : 'px-2.5 h-6 text-xs text-neutral-500 rounded'" @click="showView('logs')" data-fettler-tab-logs>Logs</button>
             <button type="button" role="tab" :aria-selected="view() === 'assistant' ? 'true' : 'false'" :class="view() === 'assistant' ? 'px-2.5 h-6 text-xs font-medium bg-neutral-200 dark:bg-neutral-800 rounded' : 'px-2.5 h-6 text-xs text-neutral-500 rounded'" @click="showView('assistant')" data-fettler-tab-assistant>Assistant</button>
             <button type="button" role="tab" :aria-selected="view() === 'info' ? 'true' : 'false'" :class="view() === 'info' ? 'px-2.5 h-6 text-xs font-medium bg-neutral-200 dark:bg-neutral-800 rounded' : 'px-2.5 h-6 text-xs text-neutral-500 rounded'" @click="showView('info')" data-fettler-tab-info>Info</button>
             @if(view() === 'logs')
-              <select :value="logLevel()" @change="logLevel.set($event.target.value)" aria-label="Lowest level to show" class="ml-auto px-1.5 h-6 text-xs bg-white dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-800 rounded">
+              <select :value="logLevel()" @change="logLevel.set($event.target.value)" aria-label="Lowest level to show" class="ml-auto px-1.5 h-6 text-xs bg-white dark:bg-neutral-900 border border-neutral-200 rounded dark:border-neutral-800">
                 <option value="all">All levels</option>
                 <option value="info">Info and up</option>
                 <option value="warning">Warnings and errors</option>
                 <option value="error">Errors</option>
               </select>
-              <input type="text" :value="logQuery()" @input="logQuery.set($event.target.value)" placeholder="Filter" aria-label="Filter log lines" class="px-2 w-40 h-6 text-xs bg-white dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-800 rounded focus:outline-none">
+              <input type="text" :value="logQuery()" @input="logQuery.set($event.target.value)" placeholder="Filter" aria-label="Filter log lines" class="px-2 h-6 w-40 text-xs bg-white dark:bg-neutral-900 border border-neutral-200 rounded dark:border-neutral-800 focus:outline-none">
               <span class="text-[11px] text-neutral-400" data-fettler-log-state>{{ logFollowing() ? 'following' : 'stopped' }}</span>
             @endif
           </div>
 
           @if(view() === 'logs')
-            <div class="flex-1 min-h-0 overflow-y-auto p-2 font-mono text-[11px] leading-5" data-fettler-logs>
+            <div class="overflow-y-auto flex-1 p-2 min-h-0 font-mono leading-5 text-[11px]" data-fettler-logs>
               @if(logNote())
                 <p class="px-1 text-red-700 dark:text-red-300" role="alert">{{ logNote() }}</p>
               @endif
               @foreach(shownLogs() as line)
-                <div :class="logClass(line.level)" class="flex gap-2 px-1"><span class="text-neutral-400 shrink-0">{{ line.time ? line.time.slice(11, 19) : '' }}</span><span class="w-12 uppercase shrink-0">{{ line.level }}</span><span class="min-w-0 break-words whitespace-pre-wrap">{{ line.message }}</span></div>
+                <div :class="logClass(line.level)" class="flex gap-2 px-1"><span class="shrink-0 text-neutral-400">{{ line.time ? line.time.slice(11, 19) : '' }}</span><span class="shrink-0 w-12 uppercase">{{ line.level }}</span><span class="min-w-0 break-words whitespace-pre-wrap">{{ line.message }}</span></div>
               @endforeach
               @if(!logNote() && shownLogs().length === 0)
                 <p class="px-1 text-neutral-500">{{ connected() ? 'No lines yet.' : 'Open a project to follow its log.' }}</p>
@@ -882,7 +882,7 @@ void loadWorkspace()
           @endif
 
           @if(view() === 'info')
-            <div class="flex-1 min-h-0 overflow-y-auto p-3 space-y-3" data-fettler-info>
+            <div class="overflow-y-auto flex-1 p-3 space-y-3 min-h-0" data-fettler-info>
               @if(!connected())
                 <p class="text-neutral-500 text-sm">Open a project to see what it is running on.</p>
               @endif
@@ -890,15 +890,15 @@ void loadWorkspace()
                 <p class="text-red-700 text-xs dark:text-red-300" role="alert">{{ panelsNote() }}</p>
               @endif
               @foreach(panels() as panel)
-                <article class="bg-white dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-800 rounded-lg">
+                <article class="bg-white dark:bg-neutral-900 border border-neutral-200 rounded-lg dark:border-neutral-800">
                   <h2 class="px-3 py-1.5 font-medium text-xs border-b border-neutral-200 dark:border-neutral-800">{{ panel.title }}</h2>
                   @foreach(panel.sections as section)
                     @if(section.title)
-                      <h3 class="px-3 pt-2 text-[10px] text-neutral-400 uppercase tracking-wide">{{ section.title }}</h3>
+                      <h3 class="pt-2 px-3 text-[10px] text-neutral-400 tracking-wide uppercase">{{ section.title }}</h3>
                     @endif
                     <dl class="px-3 py-1.5">
                       @foreach(section.rows as row)
-                        <div class="flex gap-3 py-0.5 text-xs"><dt class="w-32 text-neutral-500 shrink-0">{{ row[0] }}</dt><dd class="min-w-0 font-mono break-words">{{ row[1] }}</dd></div>
+                        <div class="flex gap-3 py-0.5 text-xs"><dt class="shrink-0 w-32 text-neutral-500">{{ row[0] }}</dt><dd class="min-w-0 break-words font-mono">{{ row[1] }}</dd></div>
                       @endforeach
                     </dl>
                   @endforeach
@@ -908,19 +908,19 @@ void loadWorkspace()
           @endif
 
           @if(view() === 'assistant')
-            <div class="flex flex-col flex-1 min-h-0" data-fettler-assistant>
-              <div class="flex-1 min-h-0 overflow-y-auto p-3 space-y-3">
+            <div class="flex flex-1 flex-col min-h-0" data-fettler-assistant>
+              <div class="overflow-y-auto flex-1 p-3 space-y-3 min-h-0">
                 @if(!ai().enabled || !ai().hasKey)
-                  <div class="p-3 text-neutral-600 text-sm dark:text-neutral-300 bg-white dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-800 rounded-lg">
+                  <div class="p-3 text-neutral-600 text-sm dark:text-neutral-300 bg-white dark:bg-neutral-900 border border-neutral-200 rounded-lg dark:border-neutral-800">
                     <p>The assistant uses your own API key. It is kept in this computer's keychain. Only your code, your question and the names of your models and columns are sent, never rows of data.</p>
-                    <button type="button" class="mt-3 px-3 h-7 font-medium text-white text-xs bg-neutral-900 dark:bg-neutral-100 dark:text-neutral-900 rounded-md" @click="aiOpen.set(true)">Set up AI</button>
+                    <button type="button" class="mt-3 px-3 h-7 font-medium text-white text-xs dark:text-neutral-900 bg-neutral-900 dark:bg-neutral-100 rounded-md" @click="aiOpen.set(true)">Set up AI</button>
                   </div>
                 @endif
                 @foreach(chat() as message)
                   <div :class="message.role === 'user' ? 'ml-8 p-2.5 text-sm bg-neutral-200 dark:bg-neutral-800 rounded-lg' : 'mr-8 p-2.5 text-sm bg-white dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-800 rounded-lg'">
-                    <pre class="font-sans whitespace-pre-wrap break-words">{{ message.content }}</pre>
+                    <pre class="break-words font-sans whitespace-pre-wrap">{{ message.content }}</pre>
                     @if(message.code)
-                      <button type="button" class="mt-2 px-2.5 h-6 text-xs border border-neutral-300 dark:border-neutral-700 rounded" @click="useCode(message.code)">Put this code in the editor</button>
+                      <button type="button" class="mt-2 px-2.5 h-6 text-xs border border-neutral-300 rounded dark:border-neutral-700" @click="useCode(message.code)">Put this code in the editor</button>
                     @endif
                   </div>
                 @endforeach
@@ -931,9 +931,9 @@ void loadWorkspace()
                   <p class="text-red-700 text-xs dark:text-red-300" role="alert">{{ chatNote() }}</p>
                 @endif
               </div>
-              <div class="flex gap-2 p-2 border-t border-neutral-200 dark:border-neutral-800">
-                <input type="text" :value="question()" @input="question.set($event.target.value)" @keydown.enter="ask()" placeholder="Describe what you want the code to do" aria-label="Question for the assistant" class="flex-1 px-2.5 h-8 text-sm bg-white dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-800 rounded-md focus:outline-none focus:border-neutral-400">
-                <button type="button" class="px-3 h-8 font-medium text-white text-xs bg-neutral-900 dark:bg-neutral-100 dark:text-neutral-900 rounded-md disabled:opacity-40" :disabled="asking()" @click="ask()">Ask</button>
+              <div class="flex gap-2 p-2 border-neutral-200 border-t dark:border-neutral-800">
+                <input type="text" :value="question()" @input="question.set($event.target.value)" @keydown.enter="ask()" placeholder="Describe what you want the code to do" aria-label="Question for the assistant" class="flex-1 px-2.5 h-8 text-sm bg-white dark:bg-neutral-900 border border-neutral-200 rounded-md dark:border-neutral-800 focus:border-neutral-400 focus:outline-none">
+                <button type="button" class="px-3 h-8 font-medium text-white text-xs dark:text-neutral-900 bg-neutral-900 dark:bg-neutral-100 rounded-md disabled:opacity-40" :disabled="asking()" @click="ask()">Ask</button>
               </div>
             </div>
           @endif
@@ -944,14 +944,14 @@ void loadWorkspace()
           @endif
 
           @if(output())
-            <article class="bg-white dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-800 rounded-lg" data-fettler-output>
+            <article class="bg-white dark:bg-neutral-900 border border-neutral-200 rounded-lg dark:border-neutral-800" data-fettler-output>
               <h2 class="px-3 py-1.5 font-medium text-[11px] text-neutral-500 border-b border-neutral-200 dark:border-neutral-800">Output</h2>
-              <pre class="p-3 overflow-x-auto font-mono text-xs whitespace-pre-wrap">{{ output() }}</pre>
+              <pre class="overflow-x-auto p-3 font-mono text-xs whitespace-pre-wrap">{{ output() }}</pre>
             </article>
           @endif
 
           @if(result())
-            <article class="bg-white dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-800 rounded-lg" data-fettler-result>
+            <article class="bg-white dark:bg-neutral-900 border border-neutral-200 rounded-lg dark:border-neutral-800" data-fettler-result>
               <h2 class="flex gap-2 items-center px-3 py-1.5 font-medium text-[11px] text-neutral-500 border-b border-neutral-200 dark:border-neutral-800">
                 <span>Result</span>
                 @if(table())
@@ -968,13 +968,13 @@ void loadWorkspace()
 
               @if(resultView() === 'table' && table())
                 <div class="flex gap-2 items-center px-3 py-1.5 border-b border-neutral-200 dark:border-neutral-800">
-                  <input type="text" :value="tableQuery()" @input="tableQuery.set($event.target.value)" placeholder="Search rows" aria-label="Search rows" class="px-2 w-48 h-6 text-xs bg-white dark:bg-neutral-950 border border-neutral-200 dark:border-neutral-800 rounded focus:outline-none">
+                  <input type="text" :value="tableQuery()" @input="tableQuery.set($event.target.value)" placeholder="Search rows" aria-label="Search rows" class="px-2 h-6 w-48 text-xs bg-white dark:bg-neutral-950 border border-neutral-200 rounded dark:border-neutral-800 focus:outline-none">
                   <span class="text-[11px] text-neutral-400">{{ shownRows().length }} of {{ table().rows.length }} rows{{ table().more ? `, ${table().more} more not sent` : '' }}</span>
                   <span class="ml-auto text-[11px] text-neutral-400" role="status">{{ copied() }}</span>
-                  <button type="button" class="px-2 h-6 text-[11px] border border-neutral-200 dark:border-neutral-800 rounded" @click="copyTable('csv')">Copy CSV</button>
-                  <button type="button" class="px-2 h-6 text-[11px] border border-neutral-200 dark:border-neutral-800 rounded" @click="copyTable('json')">Copy JSON</button>
+                  <button type="button" class="px-2 h-6 text-[11px] border border-neutral-200 rounded dark:border-neutral-800" @click="copyTable('csv')">Copy CSV</button>
+                  <button type="button" class="px-2 h-6 text-[11px] border border-neutral-200 rounded dark:border-neutral-800" @click="copyTable('json')">Copy JSON</button>
                 </div>
-                <div class="max-h-[60vh] overflow-auto" data-fettler-table>
+                <div class="overflow-auto max-h-[60vh]" data-fettler-table>
                   <table class="min-w-full text-xs">
                     <thead class="sticky top-0 bg-neutral-100 dark:bg-neutral-800">
                       <tr>
@@ -985,7 +985,7 @@ void loadWorkspace()
                     </thead>
                     <tbody class="font-mono">
                       @foreach(shownRows() as row)
-                        <tr class="border-t border-neutral-200 dark:border-neutral-800">
+                        <tr class="border-neutral-200 border-t dark:border-neutral-800">
                           @foreach(row as cell)
                             <td class="px-3 py-1 max-w-xs truncate whitespace-nowrap">{{ cell }}</td>
                           @endforeach
@@ -997,28 +997,28 @@ void loadWorkspace()
               @endif
 
               @if(resultView() === 'preview' && previewMarkup())
-                <iframe sandbox="" :srcdoc="previewMarkup()" title="Rendered preview" class="w-full h-[70vh] bg-white rounded-b-lg" data-fettler-preview></iframe>
+                <iframe sandbox="" :srcdoc="previewMarkup()" title="Rendered preview" class="h-[70vh] w-full bg-white rounded-b-lg" data-fettler-preview></iframe>
               @endif
 
               @if(resultView() === 'text' || (resultView() === 'table' && !table()) || (resultView() === 'preview' && !previewMarkup()))
-                <pre class="p-3 overflow-x-auto font-mono text-xs whitespace-pre-wrap">{{ result() }}</pre>
+                <pre class="overflow-x-auto p-3 font-mono text-xs whitespace-pre-wrap">{{ result() }}</pre>
               @endif
             </article>
           @endif
 
           @if(failure())
-            <article class="bg-red-50 dark:bg-red-500/10 border border-red-200 dark:border-red-500/30 rounded-lg" data-fettler-error>
+            <article class="bg-red-50 dark:bg-red-500/10 border border-red-200 rounded-lg dark:border-red-500/30" data-fettler-error>
               <h2 class="flex justify-between px-3 py-1.5 font-medium text-[11px] text-red-700 dark:text-red-300 border-b border-red-200 dark:border-red-500/30"><span>Error</span><span class="font-mono">{{ duration() }}</span></h2>
-              <pre class="p-3 overflow-x-auto font-mono text-red-800 text-xs dark:text-red-200 whitespace-pre-wrap">{{ failure() }}</pre>
+              <pre class="overflow-x-auto p-3 font-mono text-red-800 text-xs whitespace-pre-wrap dark:text-red-200">{{ failure() }}</pre>
             </article>
           @endif
 
           @if(queries().length)
-            <article class="bg-white dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-800 rounded-lg" data-fettler-queries>
+            <article class="bg-white dark:bg-neutral-900 border border-neutral-200 rounded-lg dark:border-neutral-800" data-fettler-queries>
               <h2 class="px-3 py-1.5 font-medium text-[11px] text-neutral-500 border-b border-neutral-200 dark:border-neutral-800">Queries ({{ queries().length }})</h2>
               <ul class="divide-neutral-200 divide-y dark:divide-neutral-800">
                 @foreach(queries() as query)
-                  <li class="flex gap-3 px-3 py-1.5 font-mono text-xs"><span class="text-neutral-400 shrink-0">{{ query.durationMs }} ms</span><span class="min-w-0 break-words">{{ query.sql }}</span></li>
+                  <li class="flex gap-3 px-3 py-1.5 font-mono text-xs"><span class="shrink-0 text-neutral-400">{{ query.durationMs }} ms</span><span class="min-w-0 break-words">{{ query.sql }}</span></li>
                 @endforeach
               </ul>
             </article>
@@ -1028,25 +1028,25 @@ void loadWorkspace()
       </main>
 
       @if(mcpOpen())
-        <div class="fixed inset-0 z-40 flex items-start justify-center pt-20 bg-black/30" @click.self="mcpOpen.set(false)" data-fettler-mcp>
-          <div class="w-full max-w-lg bg-white dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-700 rounded-xl shadow-2xl" role="dialog" aria-modal="true" aria-label="MCP settings">
+        <div class="flex fixed inset-0 z-40 items-start justify-center pt-20 bg-black/30" @click.self="mcpOpen.set(false)" data-fettler-mcp>
+          <div class="max-w-lg w-full bg-white dark:bg-neutral-900 border border-neutral-200 rounded-xl dark:border-neutral-700 shadow-2xl" role="dialog" aria-modal="true" aria-label="MCP settings">
             <div class="grid gap-3 p-4">
               <p class="text-sm">Let an AI tool such as Claude or Cursor run code through Fettler, in the connections you have opened. It works while Fettler is open.</p>
               <p class="text-[11px] text-neutral-500">A production connection is refused unless the tool is told to confirm it. Turning this on makes a new token and ends the old one.</p>
               @if(mcp().enabled)
-                <pre class="p-3 overflow-x-auto font-mono text-[11px] bg-neutral-100 dark:bg-neutral-950 border border-neutral-200 dark:border-neutral-800 rounded-md" data-fettler-mcp-config>{{ mcpConfig() }}</pre>
+                <pre class="overflow-x-auto p-3 font-mono text-[11px] bg-neutral-100 dark:bg-neutral-950 border border-neutral-200 rounded-md dark:border-neutral-800" data-fettler-mcp-config>{{ mcpConfig() }}</pre>
                 @if(!mcp().token)
                   <p class="text-[11px] text-neutral-500">The token was shown once when this was turned on. Turn it off and on again for a new one.</p>
                 @endif
               @endif
             </div>
-            <div class="flex gap-2 justify-end px-4 py-3 border-t border-neutral-200 dark:border-neutral-800">
-              <button type="button" class="px-3 h-8 text-xs border border-neutral-200 dark:border-neutral-700 rounded-md" @click="mcpOpen.set(false)">Close</button>
+            <div class="flex gap-2 justify-end px-4 py-3 border-neutral-200 border-t dark:border-neutral-800">
+              <button type="button" class="px-3 h-8 text-xs border border-neutral-200 rounded-md dark:border-neutral-700" @click="mcpOpen.set(false)">Close</button>
               @if(mcp().enabled)
-                <button type="button" class="px-3 h-8 text-xs border border-neutral-200 dark:border-neutral-700 rounded-md" @click="setMcp(false)">Turn off</button>
+                <button type="button" class="px-3 h-8 text-xs border border-neutral-200 rounded-md dark:border-neutral-700" @click="setMcp(false)">Turn off</button>
               @endif
               @if(!mcp().enabled)
-                <button type="button" class="px-3 h-8 font-medium text-white text-xs bg-neutral-900 dark:bg-neutral-100 dark:text-neutral-900 rounded-md" @click="setMcp(true)">Turn on</button>
+                <button type="button" class="px-3 h-8 font-medium text-white text-xs dark:text-neutral-900 bg-neutral-900 dark:bg-neutral-100 rounded-md" @click="setMcp(true)">Turn on</button>
               @endif
             </div>
           </div>
@@ -1054,61 +1054,61 @@ void loadWorkspace()
       @endif
 
       @if(aiOpen())
-        <div class="fixed inset-0 z-40 flex items-start justify-center pt-20 bg-black/30" @click.self="aiOpen.set(false)" data-fettler-ai-settings>
-          <div class="w-full max-w-md bg-white dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-700 rounded-xl shadow-2xl" role="dialog" aria-modal="true" aria-label="AI settings">
+        <div class="flex fixed inset-0 z-40 items-start justify-center pt-20 bg-black/30" @click.self="aiOpen.set(false)" data-fettler-ai-settings>
+          <div class="max-w-md w-full bg-white dark:bg-neutral-900 border border-neutral-200 rounded-xl dark:border-neutral-700 shadow-2xl" role="dialog" aria-modal="true" aria-label="AI settings">
             <div class="grid gap-3 p-4">
               <label class="flex gap-2 items-center text-sm"><input type="checkbox" :checked="ai().enabled" @change="setAi('enabled', $event.target.checked)"> Use AI in Fettler</label>
               <label class="flex flex-col gap-1 text-[11px] text-neutral-500">Provider
-                <select :value="ai().provider" @change="setAi('provider', $event.target.value)" class="px-2 h-8 text-neutral-900 text-xs dark:text-neutral-100 bg-white dark:bg-neutral-950 border border-neutral-200 dark:border-neutral-700 rounded-md">
+                <select :value="ai().provider" @change="setAi('provider', $event.target.value)" class="px-2 h-8 text-neutral-900 text-xs dark:text-neutral-100 bg-white dark:bg-neutral-950 border border-neutral-200 rounded-md dark:border-neutral-700">
                   <option value="anthropic">Anthropic</option>
                   <option value="openai">OpenAI</option>
                   <option value="ollama">Ollama (runs on this computer)</option>
                 </select>
               </label>
               <label class="flex flex-col gap-1 text-[11px] text-neutral-500">Model (optional)
-                <input type="text" :value="ai().model" @input="setAi('model', $event.target.value)" placeholder="The provider's fast model" autocomplete="off" spellcheck="false" class="px-2 h-8 font-mono text-neutral-900 text-xs dark:text-neutral-100 bg-white dark:bg-neutral-950 border border-neutral-200 dark:border-neutral-700 rounded-md focus:outline-none">
+                <input type="text" :value="ai().model" @input="setAi('model', $event.target.value)" placeholder="The provider's fast model" autocomplete="off" spellcheck="false" class="px-2 h-8 font-mono text-neutral-900 text-xs dark:text-neutral-100 bg-white dark:bg-neutral-950 border border-neutral-200 rounded-md dark:border-neutral-700 focus:outline-none">
               </label>
               @if(ai().provider === 'ollama')
                 <label class="flex flex-col gap-1 text-[11px] text-neutral-500">Ollama address
-                  <input type="text" :value="ai().host" @input="setAi('host', $event.target.value)" placeholder="http://127.0.0.1:11434" autocomplete="off" spellcheck="false" class="px-2 h-8 font-mono text-neutral-900 text-xs dark:text-neutral-100 bg-white dark:bg-neutral-950 border border-neutral-200 dark:border-neutral-700 rounded-md focus:outline-none">
+                  <input type="text" :value="ai().host" @input="setAi('host', $event.target.value)" placeholder="http://127.0.0.1:11434" autocomplete="off" spellcheck="false" class="px-2 h-8 font-mono text-neutral-900 text-xs dark:text-neutral-100 bg-white dark:bg-neutral-950 border border-neutral-200 rounded-md dark:border-neutral-700 focus:outline-none">
                 </label>
               @endif
               @if(ai().provider !== 'ollama')
                 <label class="flex flex-col gap-1 text-[11px] text-neutral-500">{{ ai().hasKey ? 'API key (one is saved; type to replace it)' : 'API key' }}
-                  <input type="password" :value="aiKey()" @input="aiKey.set($event.target.value)" autocomplete="off" spellcheck="false" class="px-2 h-8 font-mono text-neutral-900 text-xs dark:text-neutral-100 bg-white dark:bg-neutral-950 border border-neutral-200 dark:border-neutral-700 rounded-md focus:outline-none">
+                  <input type="password" :value="aiKey()" @input="aiKey.set($event.target.value)" autocomplete="off" spellcheck="false" class="px-2 h-8 font-mono text-neutral-900 text-xs dark:text-neutral-100 bg-white dark:bg-neutral-950 border border-neutral-200 rounded-md dark:border-neutral-700 focus:outline-none">
                 </label>
               @endif
               <label class="flex gap-2 items-center text-sm"><input type="checkbox" :checked="ai().automatic" @change="setAi('automatic', $event.target.checked)"> Suggest after a pause, not only on Alt+Backslash</label>
               <p class="text-[11px] text-neutral-500">The key is stored in this computer's keychain and is never shown again. Requests carry your code, your question and the names of your models and columns.</p>
             </div>
-            <div class="flex gap-2 justify-end px-4 py-3 border-t border-neutral-200 dark:border-neutral-800">
+            <div class="flex gap-2 justify-end px-4 py-3 border-neutral-200 border-t dark:border-neutral-800">
               @if(ai().hasKey && ai().provider !== 'ollama')
-                <button type="button" class="mr-auto px-3 h-8 text-red-700 text-xs dark:text-red-300 border border-neutral-200 dark:border-neutral-700 rounded-md" @click="forgetKey()">Forget the key</button>
+                <button type="button" class="mr-auto px-3 h-8 text-red-700 text-xs dark:text-red-300 border border-neutral-200 rounded-md dark:border-neutral-700" @click="forgetKey()">Forget the key</button>
               @endif
-              <button type="button" class="px-3 h-8 text-xs border border-neutral-200 dark:border-neutral-700 rounded-md" @click="aiOpen.set(false)">Cancel</button>
-              <button type="button" class="px-3 h-8 font-medium text-white text-xs bg-neutral-900 dark:bg-neutral-100 dark:text-neutral-900 rounded-md disabled:opacity-50" :disabled="aiSaving()" @click="saveAi()">Save</button>
+              <button type="button" class="px-3 h-8 text-xs border border-neutral-200 rounded-md dark:border-neutral-700" @click="aiOpen.set(false)">Cancel</button>
+              <button type="button" class="px-3 h-8 font-medium text-white text-xs dark:text-neutral-900 bg-neutral-900 dark:bg-neutral-100 rounded-md disabled:opacity-50" :disabled="aiSaving()" @click="saveAi()">Save</button>
             </div>
           </div>
         </div>
       @endif
 
       @if(connectOpen())
-        <div class="fixed inset-0 z-40 flex items-start justify-center pt-16 bg-black/30" @click.self="connectOpen.set(false)" data-fettler-connect>
-          <div class="w-full max-w-lg bg-white dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-700 rounded-xl shadow-2xl" role="dialog" aria-modal="true" aria-label="Connect to a remote target">
+        <div class="flex fixed inset-0 z-40 items-start justify-center pt-16 bg-black/30" @click.self="connectOpen.set(false)" data-fettler-connect>
+          <div class="max-w-lg w-full bg-white dark:bg-neutral-900 border border-neutral-200 rounded-xl dark:border-neutral-700 shadow-2xl" role="dialog" aria-modal="true" aria-label="Connect to a remote target">
             <div class="flex gap-1 p-2 border-b border-neutral-200 dark:border-neutral-800" role="tablist">
               <button type="button" role="tab" :aria-selected="connectKind() === 'ssh' ? 'true' : 'false'" :class="connectKind() === 'ssh' ? 'px-3 h-7 text-xs font-medium bg-neutral-100 dark:bg-neutral-800 rounded-md' : 'px-3 h-7 text-xs text-neutral-500 rounded-md'" @click="connectKind.set('ssh'); found.set([])">SSH</button>
               <button type="button" role="tab" :aria-selected="connectKind() === 'docker' ? 'true' : 'false'" :class="connectKind() === 'docker' ? 'px-3 h-7 text-xs font-medium bg-neutral-100 dark:bg-neutral-800 rounded-md' : 'px-3 h-7 text-xs text-neutral-500 rounded-md'" @click="connectKind.set('docker'); found.set([])">Docker</button>
               <button type="button" role="tab" :aria-selected="connectKind() === 'kube' ? 'true' : 'false'" :class="connectKind() === 'kube' ? 'px-3 h-7 text-xs font-medium bg-neutral-100 dark:bg-neutral-800 rounded-md' : 'px-3 h-7 text-xs text-neutral-500 rounded-md'" @click="connectKind.set('kube'); found.set([])">Kubernetes</button>
             </div>
-            <div class="px-4 pt-3" data-fettler-boxes>
+            <div class="pt-3 px-4" data-fettler-boxes>
               <div class="flex gap-2 items-center">
-                <button type="button" class="px-2.5 h-7 text-xs border border-neutral-200 dark:border-neutral-700 rounded-md disabled:opacity-50" :disabled="boxesLoading()" @click="loadBoxes()">{{ boxesLoading() ? 'Asking the project' : 'Servers this project is deployed to' }}</button>
+                <button type="button" class="px-2.5 h-7 text-xs border border-neutral-200 rounded-md dark:border-neutral-700 disabled:opacity-50" :disabled="boxesLoading()" @click="loadBoxes()">{{ boxesLoading() ? 'Asking the project' : 'Servers this project is deployed to' }}</button>
                 <span class="min-w-0 text-[11px] text-neutral-500 truncate">{{ boxesNote() }}</span>
               </div>
               @if(boxes().length)
-                <ul class="mt-2 border border-neutral-200 dark:border-neutral-700 rounded-md divide-neutral-200 divide-y dark:divide-neutral-800">
+                <ul class="mt-2 border border-neutral-200 divide-neutral-200 divide-y rounded-md dark:border-neutral-700 dark:divide-neutral-800">
                   @foreach(boxes() as box)
-                    <li class="flex gap-3 items-baseline px-3 py-1.5 text-xs cursor-default hover:bg-neutral-100 dark:hover:bg-neutral-800" @click="connectBox(box)"><span class="font-medium">{{ box.title }}</span><span class="ml-auto min-w-0 font-mono text-[11px] text-neutral-400 truncate">{{ box.connection.directory }}</span></li>
+                    <li class="flex gap-3 items-baseline px-3 py-1.5 text-xs hover:bg-neutral-100 dark:hover:bg-neutral-800 cursor-default" @click="connectBox(box)"><span class="font-medium">{{ box.title }}</span><span class="ml-auto min-w-0 font-mono text-[11px] text-neutral-400 truncate">{{ box.connection.directory }}</span></li>
                   @endforeach
                 </ul>
               @endif
@@ -1116,67 +1116,67 @@ void loadWorkspace()
             <div class="grid gap-3 grid-cols-2 p-4">
               @if(connectKind() === 'ssh')
               <label class="flex flex-col gap-1 text-[11px] text-neutral-500">Host
-                <input type="text" :value="form().host" @input="setField('host', $event.target.value)" placeholder="box.example.com" autocomplete="off" spellcheck="false" class="px-2 h-8 font-mono text-neutral-900 text-xs dark:text-neutral-100 bg-white dark:bg-neutral-950 border border-neutral-200 dark:border-neutral-700 rounded-md focus:outline-none focus:border-neutral-400">
+                <input type="text" :value="form().host" @input="setField('host', $event.target.value)" placeholder="box.example.com" autocomplete="off" spellcheck="false" class="px-2 h-8 font-mono text-neutral-900 text-xs dark:text-neutral-100 bg-white dark:bg-neutral-950 border border-neutral-200 rounded-md dark:border-neutral-700 focus:border-neutral-400 focus:outline-none">
               </label>
               <label class="flex flex-col gap-1 text-[11px] text-neutral-500">User
-                <input type="text" :value="form().user" @input="setField('user', $event.target.value)" placeholder="root" autocomplete="off" spellcheck="false" class="px-2 h-8 font-mono text-neutral-900 text-xs dark:text-neutral-100 bg-white dark:bg-neutral-950 border border-neutral-200 dark:border-neutral-700 rounded-md focus:outline-none focus:border-neutral-400">
+                <input type="text" :value="form().user" @input="setField('user', $event.target.value)" placeholder="root" autocomplete="off" spellcheck="false" class="px-2 h-8 font-mono text-neutral-900 text-xs dark:text-neutral-100 bg-white dark:bg-neutral-950 border border-neutral-200 rounded-md dark:border-neutral-700 focus:border-neutral-400 focus:outline-none">
               </label>
               <label class="flex flex-col gap-1 text-[11px] text-neutral-500">Port
-                <input type="text" :value="form().port" @input="setField('port', $event.target.value)" placeholder="22" autocomplete="off" spellcheck="false" class="px-2 h-8 font-mono text-neutral-900 text-xs dark:text-neutral-100 bg-white dark:bg-neutral-950 border border-neutral-200 dark:border-neutral-700 rounded-md focus:outline-none focus:border-neutral-400">
+                <input type="text" :value="form().port" @input="setField('port', $event.target.value)" placeholder="22" autocomplete="off" spellcheck="false" class="px-2 h-8 font-mono text-neutral-900 text-xs dark:text-neutral-100 bg-white dark:bg-neutral-950 border border-neutral-200 rounded-md dark:border-neutral-700 focus:border-neutral-400 focus:outline-none">
               </label>
               <label class="flex flex-col gap-1 text-[11px] text-neutral-500">Jump host (optional)
-                <input type="text" :value="form().jump" @input="setField('jump', $event.target.value)" placeholder="me@bastion" autocomplete="off" spellcheck="false" class="px-2 h-8 font-mono text-neutral-900 text-xs dark:text-neutral-100 bg-white dark:bg-neutral-950 border border-neutral-200 dark:border-neutral-700 rounded-md focus:outline-none focus:border-neutral-400">
+                <input type="text" :value="form().jump" @input="setField('jump', $event.target.value)" placeholder="me@bastion" autocomplete="off" spellcheck="false" class="px-2 h-8 font-mono text-neutral-900 text-xs dark:text-neutral-100 bg-white dark:bg-neutral-950 border border-neutral-200 rounded-md dark:border-neutral-700 focus:border-neutral-400 focus:outline-none">
               </label>
               <label class="flex flex-col gap-1 text-[11px] text-neutral-500" style="grid-column: span 2">Identity file (optional)
-                <input type="text" :value="form().identityFile" @input="setField('identityFile', $event.target.value)" placeholder="/Users/me/.ssh/id_ed25519" autocomplete="off" spellcheck="false" class="px-2 h-8 font-mono text-neutral-900 text-xs dark:text-neutral-100 bg-white dark:bg-neutral-950 border border-neutral-200 dark:border-neutral-700 rounded-md focus:outline-none focus:border-neutral-400">
+                <input type="text" :value="form().identityFile" @input="setField('identityFile', $event.target.value)" placeholder="/Users/me/.ssh/id_ed25519" autocomplete="off" spellcheck="false" class="px-2 h-8 font-mono text-neutral-900 text-xs dark:text-neutral-100 bg-white dark:bg-neutral-950 border border-neutral-200 rounded-md dark:border-neutral-700 focus:border-neutral-400 focus:outline-none">
               </label>
               @endif
               @if(connectKind() === 'kube')
               <label class="flex flex-col gap-1 text-[11px] text-neutral-500">Context (optional)
-                <input type="text" :value="form().context" @input="setField('context', $event.target.value)" placeholder="current context" autocomplete="off" spellcheck="false" class="px-2 h-8 font-mono text-neutral-900 text-xs dark:text-neutral-100 bg-white dark:bg-neutral-950 border border-neutral-200 dark:border-neutral-700 rounded-md focus:outline-none focus:border-neutral-400">
+                <input type="text" :value="form().context" @input="setField('context', $event.target.value)" placeholder="current context" autocomplete="off" spellcheck="false" class="px-2 h-8 font-mono text-neutral-900 text-xs dark:text-neutral-100 bg-white dark:bg-neutral-950 border border-neutral-200 rounded-md dark:border-neutral-700 focus:border-neutral-400 focus:outline-none">
               </label>
               <label class="flex flex-col gap-1 text-[11px] text-neutral-500">Namespace
-                <input type="text" :value="form().namespace" @input="setField('namespace', $event.target.value)" placeholder="default" autocomplete="off" spellcheck="false" class="px-2 h-8 font-mono text-neutral-900 text-xs dark:text-neutral-100 bg-white dark:bg-neutral-950 border border-neutral-200 dark:border-neutral-700 rounded-md focus:outline-none focus:border-neutral-400">
+                <input type="text" :value="form().namespace" @input="setField('namespace', $event.target.value)" placeholder="default" autocomplete="off" spellcheck="false" class="px-2 h-8 font-mono text-neutral-900 text-xs dark:text-neutral-100 bg-white dark:bg-neutral-950 border border-neutral-200 rounded-md dark:border-neutral-700 focus:border-neutral-400 focus:outline-none">
               </label>
               @endif
               @if(connectKind() !== 'docker')
               <label class="flex flex-col gap-1 text-[11px] text-neutral-500">Pod
-                <input type="text" :value="form().pod" @input="setField('pod', $event.target.value)" placeholder="api-0" autocomplete="off" spellcheck="false" class="px-2 h-8 font-mono text-neutral-900 text-xs dark:text-neutral-100 bg-white dark:bg-neutral-950 border border-neutral-200 dark:border-neutral-700 rounded-md focus:outline-none focus:border-neutral-400">
+                <input type="text" :value="form().pod" @input="setField('pod', $event.target.value)" placeholder="api-0" autocomplete="off" spellcheck="false" class="px-2 h-8 font-mono text-neutral-900 text-xs dark:text-neutral-100 bg-white dark:bg-neutral-950 border border-neutral-200 rounded-md dark:border-neutral-700 focus:border-neutral-400 focus:outline-none">
               </label>
               @endif
               <label class="flex flex-col gap-1 text-[11px] text-neutral-500">Container
-                <input type="text" :value="form().container" @input="setField('container', $event.target.value)" placeholder="web-1" autocomplete="off" spellcheck="false" class="px-2 h-8 font-mono text-neutral-900 text-xs dark:text-neutral-100 bg-white dark:bg-neutral-950 border border-neutral-200 dark:border-neutral-700 rounded-md focus:outline-none focus:border-neutral-400">
+                <input type="text" :value="form().container" @input="setField('container', $event.target.value)" placeholder="web-1" autocomplete="off" spellcheck="false" class="px-2 h-8 font-mono text-neutral-900 text-xs dark:text-neutral-100 bg-white dark:bg-neutral-950 border border-neutral-200 rounded-md dark:border-neutral-700 focus:border-neutral-400 focus:outline-none">
               </label>
               <label class="flex flex-col gap-1 text-[11px] text-neutral-500" style="grid-column: span 2">Project directory on the target
-                <input type="text" :value="form().directory" @input="setField('directory', $event.target.value)" placeholder="/var/www/app/current" autocomplete="off" spellcheck="false" class="px-2 h-8 font-mono text-neutral-900 text-xs dark:text-neutral-100 bg-white dark:bg-neutral-950 border border-neutral-200 dark:border-neutral-700 rounded-md focus:outline-none focus:border-neutral-400">
+                <input type="text" :value="form().directory" @input="setField('directory', $event.target.value)" placeholder="/var/www/app/current" autocomplete="off" spellcheck="false" class="px-2 h-8 font-mono text-neutral-900 text-xs dark:text-neutral-100 bg-white dark:bg-neutral-950 border border-neutral-200 rounded-md dark:border-neutral-700 focus:border-neutral-400 focus:outline-none">
               </label>
               <label class="flex flex-col gap-1 text-[11px] text-neutral-500">Env file to export (optional)
-                <input type="text" :value="form().envFile" @input="setField('envFile', $event.target.value)" placeholder=".env" autocomplete="off" spellcheck="false" class="px-2 h-8 font-mono text-neutral-900 text-xs dark:text-neutral-100 bg-white dark:bg-neutral-950 border border-neutral-200 dark:border-neutral-700 rounded-md focus:outline-none focus:border-neutral-400">
+                <input type="text" :value="form().envFile" @input="setField('envFile', $event.target.value)" placeholder=".env" autocomplete="off" spellcheck="false" class="px-2 h-8 font-mono text-neutral-900 text-xs dark:text-neutral-100 bg-white dark:bg-neutral-950 border border-neutral-200 rounded-md dark:border-neutral-700 focus:border-neutral-400 focus:outline-none">
               </label>
               <div class="flex flex-wrap gap-2 items-end">
-                <button type="button" class="px-2.5 h-8 text-xs border border-neutral-200 dark:border-neutral-700 rounded-md disabled:opacity-50" :disabled="finding()" @click="discover('containers')">List containers</button>
-                <button type="button" class="px-2.5 h-8 text-xs border border-neutral-200 dark:border-neutral-700 rounded-md disabled:opacity-50" :disabled="finding()" @click="discover('pods')">List pods</button>
+                <button type="button" class="px-2.5 h-8 text-xs border border-neutral-200 rounded-md dark:border-neutral-700 disabled:opacity-50" :disabled="finding()" @click="discover('containers')">List containers</button>
+                <button type="button" class="px-2.5 h-8 text-xs border border-neutral-200 rounded-md dark:border-neutral-700 disabled:opacity-50" :disabled="finding()" @click="discover('pods')">List pods</button>
               </div>
             </div>
             @if(found().length)
-              <ul class="mx-4 mb-3 max-h-40 overflow-y-auto border border-neutral-200 dark:border-neutral-700 rounded-md divide-neutral-200 divide-y dark:divide-neutral-800" data-fettler-found>
+              <ul class="overflow-y-auto mb-3 mx-4 max-h-40 border border-neutral-200 divide-neutral-200 divide-y rounded-md dark:border-neutral-700 dark:divide-neutral-800" data-fettler-found>
                 @foreach(found() as item)
-                  <li class="flex gap-3 px-3 py-1.5 font-mono text-xs cursor-default hover:bg-neutral-100 dark:hover:bg-neutral-800" @click="pick(item)"><span>{{ item.value }}</span><span class="ml-auto text-neutral-400 truncate">{{ item.hint }}</span></li>
+                  <li class="flex gap-3 px-3 py-1.5 font-mono text-xs hover:bg-neutral-100 dark:hover:bg-neutral-800 cursor-default" @click="pick(item)"><span>{{ item.value }}</span><span class="ml-auto text-neutral-400 truncate">{{ item.hint }}</span></li>
                 @endforeach
               </ul>
             @endif
-            <p class="px-4 pb-3 text-[11px] text-neutral-500">Keys come from your SSH agent. Fettler never asks for a password and writes nothing on the target.</p>
-            <div class="flex gap-2 justify-end px-4 py-3 border-t border-neutral-200 dark:border-neutral-800">
-              <button type="button" class="px-3 h-8 text-xs border border-neutral-200 dark:border-neutral-700 rounded-md" @click="connectOpen.set(false)">Cancel</button>
-              <button type="button" class="px-3 h-8 font-medium text-white text-xs bg-neutral-900 dark:bg-neutral-100 dark:text-neutral-900 rounded-md disabled:opacity-50" :disabled="connecting()" @click="connectRemote()" data-fettler-connect-go>{{ connecting() ? 'Connecting' : 'Connect' }}</button>
+            <p class="pb-3 px-4 text-[11px] text-neutral-500">Keys come from your SSH agent. Fettler never asks for a password and writes nothing on the target.</p>
+            <div class="flex gap-2 justify-end px-4 py-3 border-neutral-200 border-t dark:border-neutral-800">
+              <button type="button" class="px-3 h-8 text-xs border border-neutral-200 rounded-md dark:border-neutral-700" @click="connectOpen.set(false)">Cancel</button>
+              <button type="button" class="px-3 h-8 font-medium text-white text-xs dark:text-neutral-900 bg-neutral-900 dark:bg-neutral-100 rounded-md disabled:opacity-50" :disabled="connecting()" @click="connectRemote()" data-fettler-connect-go>{{ connecting() ? 'Connecting' : 'Connect' }}</button>
             </div>
           </div>
         </div>
       @endif
 
       @if(paletteOpen())
-        <div class="fixed inset-0 z-40 flex items-start justify-center pt-24 bg-black/30" @click.self="closePalette()" data-fettler-palette>
-          <div class="w-full max-w-xl overflow-hidden bg-white dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-700 rounded-xl shadow-2xl" role="dialog" aria-modal="true" aria-label="Command palette">
+        <div class="flex fixed inset-0 z-40 items-start justify-center pt-24 bg-black/30" @click.self="closePalette()" data-fettler-palette>
+          <div class="overflow-hidden max-w-xl w-full bg-white dark:bg-neutral-900 border border-neutral-200 rounded-xl dark:border-neutral-700 shadow-2xl" role="dialog" aria-modal="true" aria-label="Command palette">
             <input
               ref="paletteInput"
               type="text"
@@ -1188,9 +1188,9 @@ void loadWorkspace()
               :value="paletteQuery()"
               @input="paletteQuery.set($event.target.value); paletteActive.set(0)"
               @keydown="paletteKey($event)"
-              class="px-4 w-full h-12 text-sm bg-transparent border-b border-neutral-200 dark:border-neutral-800 focus:outline-none"
+              class="px-4 h-12 w-full text-sm bg-transparent border-b border-neutral-200 dark:border-neutral-800 focus:outline-none"
             >
-            <ul id="fettler-palette-list" role="listbox" class="py-1 max-h-96 overflow-y-auto">
+            <ul id="fettler-palette-list" role="listbox" class="overflow-y-auto py-1 max-h-96">
               @foreach(paletteItems() as item, index)
                 <li
                   role="option"
@@ -1199,7 +1199,7 @@ void loadWorkspace()
                   @click="choose(item)"
                   @mousemove="paletteActive.set(index)"
                 >
-                  <span class="w-14 text-[10px] text-neutral-400 uppercase tracking-wide shrink-0">{{ item.kind }}</span>
+                  <span class="shrink-0 w-14 text-[10px] text-neutral-400 tracking-wide uppercase">{{ item.kind }}</span>
                   <span class="min-w-0 font-mono text-xs truncate">{{ item.title }}</span>
                   <span class="ml-auto min-w-0 text-[11px] text-neutral-400 truncate">{{ item.hint }}</span>
                 </li>
