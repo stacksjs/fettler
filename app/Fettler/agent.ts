@@ -6,6 +6,8 @@ import { AiNotReady, Assistant } from './ai'
 import { BoxesUnavailable, listBoxes } from './boxes'
 import { DRIVER_BOOTSTRAP, PANELS_SNIPPET, plain, toPanels } from './driver'
 import { findLanguageServer, LanguageService } from './language'
+import type { LicensingOptions } from './license'
+import { Licensing, ProRequired } from './license'
 import { followLog, logCommand } from './logs'
 import type { McpHost } from './mcp'
 import { renderValue } from '@stacksjs/tinker'
@@ -62,10 +64,11 @@ function json(body: unknown, status = 200): Response {
   return new Response(JSON.stringify(body), { status, headers: { 'content-type': 'application/json', 'cache-control': 'no-store' } })
 }
 
-export async function startAgent(options: { port?: number, quiet?: boolean, storePath?: string, secrets?: SecretStore, open?: Connection } = {}): Promise<AgentHandle> {
+export async function startAgent(options: { port?: number, quiet?: boolean, storePath?: string, secrets?: SecretStore, open?: Connection, licensing?: LicensingOptions } = {}): Promise<AgentHandle> {
   const store = new Store(options.storePath)
   const secrets = options.secrets ?? keychain
   const assistant = new Assistant(store, secrets)
+  const licensing = new Licensing(store, secrets, options.licensing)
   // The same port every launch when it is free, so an MCP client's saved address keeps working.
   const remembered = store.setting<number>('agent.port', 0)
   const port = options.port ?? (remembered && await portIsFree(remembered) ? remembered : await freePort())
@@ -146,6 +149,8 @@ export async function startAgent(options: { port?: number, quiet?: boolean, stor
       const known = store.recentConnections(50).find(item => item.key === key)
       if (!known?.spec)
         throw new ConnectionError(`No connection named ${key}. Call list_connections for the keys.`)
+      if ((known.spec as Connection).kind !== 'local')
+        await licensing.require('remote')
       return openConnection(known.spec as Connection)
     },
     run: (code, onFrame) => {
@@ -200,10 +205,14 @@ export async function startAgent(options: { port?: number, quiet?: boolean, stor
       if (!body || !['sandbox', 'local', 'ssh', 'docker', 'kube'].includes(body.kind) || (body.kind === 'local' && typeof body.path !== 'string'))
         return json({ error: 'Name a sandbox, a local project, or a remote target.' }, 400)
       try {
+        if (body.kind !== 'sandbox' && body.kind !== 'local')
+          await licensing.require('remote')
         const opened = await openConnection(body)
         return json({ connection: { ...summarize(body), environment: opened.environment }, session: opened.info })
       }
       catch (error) {
+        if (error instanceof ProRequired)
+          return json({ error: error.message, needsPro: error.feature }, 402)
         return json({ error: error instanceof Error ? error.message : String(error) }, error instanceof ConnectionError ? 422 : 502)
       }
     }
@@ -315,6 +324,8 @@ export async function startAgent(options: { port?: number, quiet?: boolean, stor
         return json({ enabled: Boolean(mcpToken), address })
       if (request.method === 'POST') {
         const body = await request.json().catch(() => null) as { enabled?: unknown } | null
+        if (body?.enabled === true && !(await licensing.entitlements()).pro)
+          return json({ error: new ProRequired('mcp').message, needsPro: 'mcp' }, 402)
         if (body?.enabled === true) {
           // A fresh token each time it is turned on: the old one stops working, and this one is shown once.
           mcpToken = crypto.randomUUID().replaceAll('-', '') + crypto.randomUUID().replaceAll('-', '')
@@ -373,6 +384,20 @@ export async function startAgent(options: { port?: number, quiet?: boolean, stor
       }
     }
 
+    if (path === '/__fettler/license') {
+      if (request.method === 'GET')
+        return json(await licensing.entitlements(new URL(request.url).searchParams.get('fresh') === '1'))
+      if (request.method === 'POST') {
+        const body = await request.json().catch(() => null) as { key?: unknown } | null
+        if (!body || typeof body.key !== 'string')
+          return json({ error: 'Enter your license key.' }, 400)
+        const result = await licensing.activate(body.key)
+        return json(result, result.ok ? 200 : result.reason === 'device-limit' ? 409 : 422)
+      }
+      if (request.method === 'DELETE')
+        return json(await licensing.release())
+    }
+
     if (path === '/__fettler/models' && request.method === 'GET')
       return json({ models })
 
@@ -392,6 +417,7 @@ export async function startAgent(options: { port?: number, quiet?: boolean, stor
       if (!body)
         return json({ error: 'Nothing was sent.' }, 400)
       try {
+        await licensing.require('ai')
         if (path.endsWith('/suggest')) {
           if (typeof body.before !== 'string')
             return json({ error: 'Send the text before the cursor.' }, 400)
@@ -402,6 +428,8 @@ export async function startAgent(options: { port?: number, quiet?: boolean, stor
         return json(await assistant.ask({ messages: body.messages as ChatMessage[], code: typeof body.code === 'string' ? body.code : '', models }))
       }
       catch (error) {
+        if (error instanceof ProRequired)
+          return json({ error: error.message, needsPro: error.feature }, 402)
         if (error instanceof AiNotReady)
           return json({ error: error.message, notReady: true }, 409)
         return json({ error: error instanceof Error ? error.message : String(error) }, 502)

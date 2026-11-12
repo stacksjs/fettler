@@ -114,3 +114,33 @@ describe('the agent', () => {
     expect(kept.get('ai.openai')).toBe('sk-test-not-real')
   })
 })
+
+describe('the agent with Pro locked', () => {
+  test('local work is free; remote targets, AI and MCP answer 402 and say what they need', async () => {
+    const locked = await startAgent({
+      storePath: join(mkdtempSync(join(tmpdir(), 'fettler-locked-')), 'fettler.sqlite'),
+      secrets,
+      licensing: { openBeta: false, publicKeys: {} },
+    })
+    try {
+      const origin = `http://127.0.0.1:${locked.port}`
+      const trade = await fetch(locked.url, { redirect: 'manual' })
+      const session = (trade.headers.get('set-cookie') ?? '').split(';')[0]!
+      const call = (path: string, init: RequestInit = {}) => fetch(`${origin}${path}`, { ...init, headers: { 'content-type': 'application/json', 'cookie': session } })
+
+      expect(await (await call('/__fettler/license')).json()).toMatchObject({ pro: false, source: 'none' })
+      expect((await call('/__fettler/connect', { method: 'POST', body: JSON.stringify({ kind: 'sandbox' }) })).status).toBe(200)
+
+      const remote = await call('/__fettler/connect', { method: 'POST', body: JSON.stringify({ kind: 'ssh', host: 'box.example', directory: '/app' }) })
+      expect(remote.status).toBe(402)
+      expect(await remote.json()).toMatchObject({ needsPro: 'remote' })
+
+      expect((await call('/__fettler/ai/suggest', { method: 'POST', body: JSON.stringify({ before: 'x.' }) })).status).toBe(402)
+      expect((await call('/__fettler/mcp-settings', { method: 'POST', body: JSON.stringify({ enabled: true }) })).status).toBe(402)
+      expect(await (await call('/__fettler/license', { method: 'POST', body: JSON.stringify({ key: 'ABCD' }) })).json()).toMatchObject({ ok: false, reason: 'not-open' })
+    }
+    finally {
+      locked.stop()
+    }
+  }, 60_000)
+})

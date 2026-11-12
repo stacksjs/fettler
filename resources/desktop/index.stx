@@ -263,6 +263,60 @@ async function connectBox(target) {
   if (connected() && connection().kind === 'ssh') connectOpen.set(false)
 }
 
+const license = state({ pro: false, source: 'none', standing: null, version: '', buildDate: '' })
+const licenseOpen = state(false)
+const licenseKey = state('')
+const licenseNote = state('')
+const licenseBusy = state(false)
+const licenseDevices = state([])
+
+const licenseSummary = derived(() => {
+  const current = license()
+  if (current.source === 'license' && current.standing) {
+    const until = current.standing.updatesUntil
+    return current.standing.tier === 'lifetime' ? 'Pro, lifetime license' : until ? `Pro, updates until ${until.slice(0, 10)}` : 'Pro'
+  }
+  if (current.source === 'beta') return 'Beta: every feature is open until licenses go on sale'
+  if (current.standing && current.standing.licensed) return 'Licensed, but this build is newer than the license covers. Remote targets and AI are locked on it.'
+  return 'Free: local projects and the sandbox'
+})
+
+async function loadLicense() {
+  const response = await fetch('/__fettler/license')
+  if (response.ok) license.set(await response.json())
+}
+
+async function activateLicense() {
+  licenseBusy.set(true)
+  licenseNote.set('')
+  licenseDevices.set([])
+  try {
+    const response = await fetch('/__fettler/license', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ key: licenseKey() }) })
+    const body = await response.json()
+    if (body.ok) {
+      license.set(body.entitlements)
+      licenseKey.set('')
+      licenseNote.set('This device is activated.')
+    }
+    else {
+      licenseNote.set(body.message || body.error || 'The key could not be activated.')
+      licenseDevices.set(body.devices || [])
+    }
+  }
+  catch (cause) {
+    licenseNote.set(cause instanceof Error ? cause.message : 'The key could not be activated.')
+  }
+  finally {
+    licenseBusy.set(false)
+  }
+}
+
+async function releaseLicense() {
+  const response = await fetch('/__fettler/license', { method: 'DELETE' })
+  if (response.ok) license.set(await response.json())
+  licenseNote.set('This device no longer uses the license.')
+}
+
 const mcpOpen = state(false)
 const mcp = state({ enabled: false, address: '', token: '' })
 
@@ -429,6 +483,7 @@ const paletteItems = derived(() => {
     { kind: 'action', id: 'remote', title: 'Connect to a server, container or pod', hint: '' },
     { kind: 'action', id: 'assistant', title: 'Ask the assistant', hint: '' },
     { kind: 'action', id: 'mcp', title: 'Let AI tools use Fettler (MCP)', hint: mcp().enabled ? 'on' : 'off' },
+    { kind: 'action', id: 'license', title: 'License', hint: license().source === 'license' ? 'Pro' : license().source === 'beta' ? 'beta' : 'free' },
     { kind: 'action', id: 'new-tab', title: 'New buffer', hint: '' },
     { kind: 'action', id: 'theme-system', title: 'Theme: follow the system', hint: ui().theme === 'system' ? 'current' : '' },
     { kind: 'action', id: 'theme-light', title: 'Theme: light', hint: ui().theme === 'light' ? 'current' : '' },
@@ -489,6 +544,11 @@ async function choose(item) {
   }
   else if (item.id === 'ai-settings') {
     aiOpen.set(true)
+  }
+  else if (item.id === 'license') {
+    await loadLicense()
+    licenseNote.set('')
+    licenseOpen.set(true)
   }
   else if (item.id === 'new-tab') {
     newTab()
@@ -765,10 +825,14 @@ function runSelection(detail) {
   if (detail && detail.text) guarded(detail.text)
 }
 
+// App-wide shortcuts work wherever the focus is, including before anything has been clicked.
+useEventListener('keydown', appKey)
+
 void loadState()
 void loadAi()
 void loadMcp()
 void loadWorkspace()
+void loadLicense()
 </script>
 
 @nolayout
@@ -780,7 +844,7 @@ void loadWorkspace()
     <title>Fettler</title>
   </head>
   <body class="overflow-hidden h-screen antialiased text-neutral-900 dark:text-neutral-100 bg-neutral-50 dark:bg-neutral-950">
-    <div :class="themeClass()" class="flex flex-col h-screen text-neutral-900 dark:text-neutral-100 bg-neutral-50 dark:bg-neutral-950" data-fettler-app @keydown="appKey($event)">
+    <div :class="themeClass()" class="flex flex-col h-screen text-neutral-900 dark:text-neutral-100 bg-neutral-50 dark:bg-neutral-950" data-fettler-app>
       <header class="flex gap-3 items-center shrink-0 px-3 h-11 border-b border-neutral-200 dark:border-neutral-800">
         <span class="font-medium text-sm" data-fettler-target>{{ targetLabel() }}</span>
         @if(whereLabel())
@@ -1027,6 +1091,37 @@ void loadWorkspace()
           </div>
         </section>
       </main>
+
+      @if(licenseOpen())
+        <div class="flex fixed inset-0 z-40 items-start justify-center pt-20 bg-black/30" @click.self="licenseOpen.set(false)" data-fettler-license>
+          <div class="max-w-md w-full bg-white dark:bg-neutral-900 border border-neutral-200 rounded-xl dark:border-neutral-700 shadow-2xl" role="dialog" aria-modal="true" aria-label="License">
+            <div class="grid gap-3 p-4">
+              <p class="text-sm" data-fettler-license-summary>{{ licenseSummary() }}</p>
+              <p class="text-[11px] text-neutral-500">Fettler {{ license().version }}, built {{ license().buildDate }}. A license covers two devices. Local projects and the sandbox are free.</p>
+              <label class="flex flex-col gap-1 text-[11px] text-neutral-500">License key
+                <input type="text" :value="licenseKey()" @input="licenseKey.set($event.target.value)" @keydown.enter="activateLicense()" autocomplete="off" spellcheck="false" class="px-2 h-8 font-mono text-neutral-900 text-xs dark:text-neutral-100 bg-white dark:bg-neutral-950 border border-neutral-200 rounded-md dark:border-neutral-700 focus:outline-none">
+              </label>
+              @if(licenseNote())
+                <p class="text-neutral-700 text-xs dark:text-neutral-200" role="status">{{ licenseNote() }}</p>
+              @endif
+              @if(licenseDevices().length)
+                <ul class="text-xs border border-neutral-200 divide-neutral-200 divide-y rounded-md dark:border-neutral-700 dark:divide-neutral-800">
+                  @foreach(licenseDevices() as device)
+                    <li class="flex gap-3 px-3 py-1.5"><span>{{ device.name || 'A device' }}</span><span class="ml-auto text-neutral-400">{{ device.platform || '' }}</span></li>
+                  @endforeach
+                </ul>
+              @endif
+            </div>
+            <div class="flex gap-2 justify-end px-4 py-3 border-neutral-200 border-t dark:border-neutral-800">
+              @if(license().standing && license().standing.licensed)
+                <button type="button" class="mr-auto px-3 h-8 text-xs border border-neutral-200 rounded-md dark:border-neutral-700" @click="releaseLicense()">Stop using it on this device</button>
+              @endif
+              <button type="button" class="px-3 h-8 text-xs border border-neutral-200 rounded-md dark:border-neutral-700" @click="licenseOpen.set(false)">Close</button>
+              <button type="button" class="px-3 h-8 font-medium text-white text-xs dark:text-neutral-900 bg-neutral-900 dark:bg-neutral-100 rounded-md disabled:opacity-50" :disabled="licenseBusy()" @click="activateLicense()">Activate</button>
+            </div>
+          </div>
+        </div>
+      @endif
 
       @if(mcpOpen())
         <div class="flex fixed inset-0 z-40 items-start justify-center pt-20 bg-black/30" @click.self="mcpOpen.set(false)" data-fettler-mcp>
