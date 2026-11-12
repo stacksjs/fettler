@@ -1,4 +1,5 @@
 <script client>
+import { fuzzyFilter } from '../functions/fuzzy'
 import { renderTinkerValue } from '../functions/tinker-value'
 
 const code = state('const numbers = [1, 2, 3]\nnumbers.map(n => n * 2)\n')
@@ -13,6 +14,14 @@ const failure = state('')
 const duration = state('')
 const queries = state([])
 
+const widgets = state([])
+const recent = state([])
+const snippets = state([])
+const historyEntries = state([])
+const paletteOpen = state(false)
+const paletteQuery = state('')
+const paletteActive = state(0)
+const paletteInput = useRef('paletteInput')
 const diagnostics = state([])
 const editorRef = ref()
 let checkTimer = 0
@@ -26,6 +35,93 @@ async function loadState() {
   if (!response.ok) return
   const body = await response.json()
   connection.set(body.connection)
+  recent.set(body.recent || [])
+}
+
+function firstLine(text) {
+  const line = (text || '').split('\n').find(part => part.trim()) || ''
+  return line.length > 90 ? `${line.slice(0, 90)}...` : line
+}
+
+// Everything the palette can do, as one list: actions, then projects, snippets and what was run.
+const paletteItems = derived(() => {
+  const items = [
+    { kind: 'action', id: 'run', title: 'Run', hint: 'Cmd+Enter' },
+    { kind: 'action', id: 'sandbox', title: 'Open the sandbox', hint: '' },
+    { kind: 'action', id: 'save', title: 'Save as snippet', hint: firstLine(code()) },
+    { kind: 'action', id: 'clear-history', title: 'Clear history for this connection', hint: '' },
+  ]
+  for (const item of recent()) {
+    if (item.kind === 'local') items.push({ kind: 'project', id: item.key, title: `Open ${item.label}`, hint: item.path, path: item.path })
+  }
+  for (const item of snippets()) items.push({ kind: 'snippet', id: `s${item.id}`, title: item.title, hint: firstLine(item.code), code: item.code })
+  for (const item of historyEntries()) items.push({ kind: 'history', id: `h${item.id}`, title: firstLine(item.code), hint: item.ok ? '' : 'failed', code: item.code })
+  return fuzzyFilter(paletteQuery(), items, item => `${item.title} ${item.hint || ''}`).slice(0, 80)
+})
+
+async function openPalette() {
+  paletteQuery.set('')
+  paletteActive.set(0)
+  paletteOpen.set(true)
+  await nextTick()
+  if (paletteInput.value) paletteInput.value.focus()
+  const [snippetsResponse, historyResponse] = await Promise.all([fetch('/__fettler/snippets'), fetch('/__fettler/history')])
+  if (snippetsResponse.ok) snippets.set((await snippetsResponse.json()).snippets || [])
+  if (historyResponse.ok) historyEntries.set((await historyResponse.json()).entries || [])
+  await loadState()
+}
+
+function closePalette() {
+  paletteOpen.set(false)
+  const editor = editorRef.value && editorRef.value.__stx_exposed
+  if (editor) editor.focus()
+}
+
+async function choose(item) {
+  if (!item) return
+  closePalette()
+  if (item.kind === 'snippet' || item.kind === 'history') {
+    code.set(item.code)
+    scheduleCheck()
+  }
+  else if (item.kind === 'project') {
+    projectPath.set(item.path)
+    await connect({ kind: 'local', path: item.path })
+  }
+  else if (item.id === 'run') {
+    runAll()
+  }
+  else if (item.id === 'sandbox') {
+    await connect({ kind: 'sandbox' })
+  }
+  else if (item.id === 'save') {
+    await fetch('/__fettler/snippets', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ title: firstLine(code()) || 'Untitled', code: code(), scoped: connection() && connection().kind === 'local' }),
+    })
+    notice.set('Saved as a snippet.')
+  }
+  else if (item.id === 'clear-history') {
+    await fetch('/__fettler/history', { method: 'DELETE' })
+    notice.set('History cleared.')
+  }
+}
+
+function paletteKey(event) {
+  const count = paletteItems().length
+  if (event.key === 'ArrowDown') { event.preventDefault(); paletteActive.set(count ? (paletteActive() + 1) % count : 0) }
+  else if (event.key === 'ArrowUp') { event.preventDefault(); paletteActive.set(count ? (paletteActive() - 1 + count) % count : 0) }
+  else if (event.key === 'Enter') { event.preventDefault(); void choose(paletteItems()[paletteActive()]) }
+  else if (event.key === 'Escape') { event.preventDefault(); closePalette() }
+}
+
+function appKey(event) {
+  if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === 'k') {
+    event.preventDefault()
+    if (paletteOpen()) closePalette()
+    else void openPalette()
+  }
 }
 
 async function connect(target) {
@@ -61,6 +157,10 @@ function take(frame) {
   if (frame.type === 'stdout' || frame.type === 'stderr' || frame.type === 'stray') output.set(output() + frame.text)
   else if (frame.type === 'dump') output.set(`${output()}${renderTinkerValue(frame.value)}\n`)
   else if (frame.type === 'query') queries.set([...queries(), frame])
+  else if (frame.type === 'probe') {
+    const text = frame.kind === 'time' ? `${frame.ms} ms` : renderTinkerValue(frame.value).replace(/\s*\n\s*/g, ' ')
+    widgets.set([...widgets(), { line: frame.line, text: text.length > 120 ? `${text.slice(0, 120)}...` : text, kind: frame.kind === 'time' ? 'info' : 'result' }])
+  }
   else if (frame.type === 'result') { result.set(renderTinkerValue(frame.value)); duration.set(`${frame.durationMs} ms`) }
   else if (frame.type === 'error') { failure.set(renderTinkerValue(frame.error)); duration.set(`${frame.durationMs} ms`) }
   else if (frame.type === 'agent-error') failure.set(frame.message)
@@ -74,6 +174,7 @@ async function run(source) {
   failure.set('')
   duration.set('')
   queries.set([])
+  widgets.set([])
   try {
     const response = await fetch('/__fettler/run', {
       method: 'POST',
@@ -159,7 +260,7 @@ void loadState()
     <title>Fettler</title>
   </head>
   <body class="h-screen overflow-hidden antialiased text-neutral-900 dark:text-neutral-100 bg-neutral-50 dark:bg-neutral-950">
-    <div class="flex flex-col h-screen" data-fettler-app>
+    <div class="flex flex-col h-screen" data-fettler-app @keydown="appKey($event)">
       <header class="flex gap-3 items-center px-3 h-11 border-b border-neutral-200 dark:border-neutral-800 shrink-0">
         <span class="font-medium text-sm" data-fettler-target>{{ targetLabel() }}</span>
         <input
@@ -174,6 +275,7 @@ void loadState()
         >
         <button type="button" class="px-2.5 h-7 text-xs bg-white dark:bg-neutral-900 hover:bg-neutral-100 dark:hover:bg-neutral-800 border border-neutral-200 dark:border-neutral-800 rounded-md disabled:opacity-50" :disabled="connecting()" @click="connectProject()" data-fettler-open>Open project</button>
         <button type="button" class="px-2.5 h-7 text-xs bg-white dark:bg-neutral-900 hover:bg-neutral-100 dark:hover:bg-neutral-800 border border-neutral-200 dark:border-neutral-800 rounded-md disabled:opacity-50" :disabled="connecting()" @click="connect({ kind: 'sandbox' })" data-fettler-sandbox>Sandbox</button>
+        <button type="button" class="px-2.5 h-7 text-neutral-500 text-xs bg-white dark:bg-neutral-900 hover:bg-neutral-100 dark:hover:bg-neutral-800 border border-neutral-200 dark:border-neutral-800 rounded-md" @click="openPalette()" aria-label="Open the command palette" data-fettler-palette-open>Cmd+K</button>
         <button type="button" class="px-3 h-7 font-medium text-white text-xs bg-neutral-900 dark:bg-neutral-100 dark:text-neutral-900 rounded-md disabled:opacity-40" :disabled="running() || !connected()" @click="runAll()" data-fettler-run>{{ running() ? 'Running' : 'Run' }}</button>
       </header>
 
@@ -190,6 +292,7 @@ void loadState()
             v-model:value="code"
             @ref="editorRef"
             :diagnostics="diagnostics()"
+            :widgets="widgets()"
             :autoComplete="true"
             @input="scheduleCheck()"
             @complete="complete($event)"
@@ -236,6 +339,44 @@ void loadState()
           @endif
         </section>
       </main>
+
+      @if(paletteOpen())
+        <div class="fixed inset-0 z-40 flex items-start justify-center pt-24 bg-black/30" @click.self="closePalette()" data-fettler-palette>
+          <div class="w-full max-w-xl overflow-hidden bg-white dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-700 rounded-xl shadow-2xl" role="dialog" aria-modal="true" aria-label="Command palette">
+            <input
+              ref="paletteInput"
+              type="text"
+              role="combobox"
+              aria-expanded="true"
+              aria-controls="fettler-palette-list"
+              aria-label="Search commands, projects, snippets and history"
+              placeholder="Search commands, projects, snippets and history"
+              :value="paletteQuery()"
+              @input="paletteQuery.set($event.target.value); paletteActive.set(0)"
+              @keydown="paletteKey($event)"
+              class="px-4 w-full h-12 text-sm bg-transparent border-b border-neutral-200 dark:border-neutral-800 focus:outline-none"
+            >
+            <ul id="fettler-palette-list" role="listbox" class="py-1 max-h-96 overflow-y-auto">
+              @foreach(paletteItems() as item, index)
+                <li
+                  role="option"
+                  :aria-selected="index === paletteActive() ? 'true' : 'false'"
+                  :class="index === paletteActive() ? 'flex gap-3 items-baseline px-4 py-2 cursor-default bg-neutral-100 dark:bg-neutral-800' : 'flex gap-3 items-baseline px-4 py-2 cursor-default'"
+                  @click="choose(item)"
+                  @mousemove="paletteActive.set(index)"
+                >
+                  <span class="w-14 text-[10px] text-neutral-400 uppercase tracking-wide shrink-0">{{ item.kind }}</span>
+                  <span class="min-w-0 font-mono text-xs truncate">{{ item.title }}</span>
+                  <span class="ml-auto min-w-0 text-[11px] text-neutral-400 truncate">{{ item.hint }}</span>
+                </li>
+              @endforeach
+              @if(paletteItems().length === 0)
+                <li class="px-4 py-3 text-neutral-500 text-sm">Nothing matches.</li>
+              @endif
+            </ul>
+          </div>
+        </div>
+      @endif
     </div>
   </body>
 </html>

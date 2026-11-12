@@ -3,6 +3,7 @@ import { join } from 'node:path'
 import process from 'node:process'
 import { findLanguageServer, LanguageService } from './language'
 import { Runner } from './runner'
+import { Store } from './store'
 import { commandFor, ConnectionError, sandboxDirectory, summarize } from './targets'
 
 /**
@@ -40,7 +41,8 @@ function json(body: unknown, status = 200): Response {
   return new Response(JSON.stringify(body), { status, headers: { 'content-type': 'application/json', 'cache-control': 'no-store' } })
 }
 
-export async function startAgent(options: { port?: number, quiet?: boolean } = {}): Promise<AgentHandle> {
+export async function startAgent(options: { port?: number, quiet?: boolean, storePath?: string } = {}): Promise<AgentHandle> {
+  const store = new Store(options.storePath)
   const port = options.port ?? await freePort()
   const token = crypto.randomUUID().replaceAll('-', '') + crypto.randomUUID().replaceAll('-', '')
   const hosts = new Set([`127.0.0.1:${port}`, `localhost:${port}`])
@@ -61,6 +63,8 @@ export async function startAgent(options: { port?: number, quiet?: boolean } = {
     return binary ? new LanguageService(project, binary, target.kind === 'local' ? 'app/__fettler_scratch__.ts' : 'scratch.ts') : undefined
   }
 
+  const keyOf = (target: Connection): string => target.kind === 'sandbox' ? 'sandbox' : `local:${summarize(target).path}`
+
   const authorized = (request: Request): boolean => {
     const cookies = request.headers.get('cookie') ?? ''
     return cookies.split(';').some(part => part.trim() === `${COOKIE}=${token}`)
@@ -72,6 +76,7 @@ export async function startAgent(options: { port?: number, quiet?: boolean } = {
         connection: connection ? summarize(connection) : null,
         running: Boolean(runner?.running),
         platform: process.platform,
+        recent: store.recentConnections(),
       })
     }
 
@@ -87,6 +92,8 @@ export async function startAgent(options: { port?: number, quiet?: boolean } = {
         connection = body
         language?.stop()
         language = startLanguage(body)
+        const summary = summarize(body)
+        store.touchConnection({ key: keyOf(body), kind: summary.kind, label: summary.label, path: summary.path })
         return json({ connection: summarize(body), session: info })
       }
       catch (error) {
@@ -106,8 +113,22 @@ export async function startAgent(options: { port?: number, quiet?: boolean } = {
       // One JSON frame per line, flushed as each arrives, so output shows while the code is still running.
       const stream = new ReadableStream<Uint8Array>({
         start(controller) {
-          const send = (frame: unknown): void => controller.enqueue(encoder.encode(`${JSON.stringify(frame)}\n`))
+          let ok = false
+          let durationMs: number | null = null
+          const send = (frame: unknown): void => {
+            const seen = frame as { type?: string, ok?: boolean, durationMs?: number }
+            if (seen.type === 'done')
+              ok = seen.ok === true
+            if (seen.type === 'result' || seen.type === 'error')
+              durationMs = seen.durationMs ?? null
+            controller.enqueue(encoder.encode(`${JSON.stringify(frame)}\n`))
+          }
+          const ran = connection
           active.run(body.code as string, send)
+            .then(() => {
+              if (ran)
+                store.recordRun(keyOf(ran), body.code as string, ok, durationMs)
+            })
             .catch(error => send({ type: 'agent-error', message: error instanceof Error ? error.message : String(error) }))
             .finally(() => controller.close())
         },
@@ -133,6 +154,41 @@ export async function startAgent(options: { port?: number, quiet?: boolean } = {
       }
       catch (error) {
         return json({ available: false, error: error instanceof Error ? error.message : String(error), items: [], diagnostics: [], hover: null })
+      }
+    }
+
+    if (path === '/__fettler/history') {
+      const url = new URL(request.url)
+      if (request.method === 'GET') {
+        const everywhere = url.searchParams.get('scope') === 'all'
+        return json({ entries: store.history({ connection: everywhere || !connection ? undefined : keyOf(connection), search: url.searchParams.get('search') ?? undefined, limit: 200 }) })
+      }
+      if (request.method === 'DELETE') {
+        store.clearHistory(connection ? keyOf(connection) : undefined)
+        return json({ ok: true })
+      }
+    }
+
+    if (path === '/__fettler/snippets') {
+      if (request.method === 'GET')
+        return json({ snippets: store.snippets(connection ? keyOf(connection) : undefined) })
+      if (request.method === 'POST') {
+        const body = await request.json().catch(() => null) as { id?: unknown, title?: unknown, code?: unknown, scoped?: unknown } | null
+        if (!body || typeof body.code !== 'string' || typeof body.title !== 'string')
+          return json({ error: 'A snippet needs a title and code.' }, 400)
+        return json({ snippet: store.saveSnippet({
+          id: typeof body.id === 'number' ? body.id : undefined,
+          title: body.title,
+          code: body.code,
+          connection: body.scoped === true && connection ? keyOf(connection) : null,
+        }) })
+      }
+      if (request.method === 'DELETE') {
+        const id = Number(new URL(request.url).searchParams.get('id'))
+        if (!Number.isInteger(id))
+          return json({ error: 'Name the snippet to delete.' }, 400)
+        store.deleteSnippet(id)
+        return json({ ok: true })
       }
     }
 
