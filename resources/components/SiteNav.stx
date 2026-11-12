@@ -12,7 +12,7 @@ function toggleMenu() { menuOpen.update(open => !open) }
 <header class="sticky top-0 border-b border-line site-nav" style="z-index: 20">
   <nav class="flex gap-6 items-center justify-between mx-auto px-4 md:px-8 h-16 max-w-6xl" aria-label="Main">
     <a href="/" class="flex gap-2 items-center font-semibold text-ink text-lg tracking-tight">
-      <span class="size-5 text-accent-ink i-hugeicons-anvil" aria-hidden="true"></span>
+      <span class="text-accent-ink"><BrandMark size="24" /></span>
       {{ site.name }}
     </a>
 

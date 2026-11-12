@@ -44,9 +44,9 @@ const navPath = typeof canonicalPath !== 'undefined' && canonicalPath ? canonica
     }
 
     /*
-     * Tokens. Zinc neutrals and one accent, the orange of a grinding spark:
-     * fettling is the trimming and cleaning of a casting. The theme follows
-     * the system and every section stays inside it.
+     * Tokens. Zinc neutrals and one accent, the brass of a bell: the mark is
+     * a bell with a prompt cut into it. The theme follows the system and every
+     * section stays inside it.
      *
      * --accent fills, --accent-ink is the same hue at a contrast that passes
      * for text, --on-accent is the text on an accent fill in both themes.
@@ -59,9 +59,9 @@ const navPath = typeof canonicalPath !== 'undefined' && canonicalPath ? canonica
       --ink: #18181b;
       --muted: #52525b;
       --line: #e4e4e7;
-      --accent: #e4572e;
-      --accent-ink: #b53d18;
-      --accent-soft: #fdeee8;
+      --accent: #f2b94b;
+      --accent-ink: #8a5a00;
+      --accent-soft: #fbf1dc;
       --on-accent: #18181b;
       --syn-string: #0f766e;
       --syn-type: #1d4ed8;
@@ -76,8 +76,8 @@ const navPath = typeof canonicalPath !== 'undefined' && canonicalPath ? canonica
         --ink: #f4f4f5;
         --muted: #a1a1aa;
         --line: #27272a;
-        --accent-ink: #ff8f66;
-        --accent-soft: #2a140c;
+        --accent-ink: #f2b94b;
+        --accent-soft: #2a2008;
         --syn-string: #5eead4;
         --syn-type: #93c5fd;
         --syn-comment: #8b8b94;

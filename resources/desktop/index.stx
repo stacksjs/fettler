@@ -1035,6 +1035,8 @@ void loadUpdate()
     <style>
       /* The editor is the window: no frame of its own, and the page's background behind the code. */
       [data-tinkerbelle-editor] [data-stx-code-editor] { border: 0; border-radius: 0; --stx-code-bg: transparent; --stx-code-padding-y: 14px; --stx-code-padding-x: 16px; }
+      /* The caret and the selection carry the brand's brass; nothing else in the window is coloured. */
+      [data-tinkerbelle-app] { --stx-accent: #d99a1c; }
       .tinkerbelle-pane { width: 44%; min-width: 320px; max-width: 760px; }
       .tinkerbelle-float { box-shadow: 0 16px 48px -16px rgb(0 0 0 / 0.28), 0 2px 6px -2px rgb(0 0 0 / 0.08); }
       body { font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Text', 'Segoe UI Variable', 'Segoe UI', system-ui, sans-serif; }

@@ -21,14 +21,20 @@ const headRobots = typeof noindex !== 'undefined' && noindex ? 'noindex' : 'inde
 <meta name="description" content="{{ headDescription }}">
 <meta name="robots" content="{{ headRobots }}">
 <link rel="canonical" href="{{ headUrl }}">
+<link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<link rel="apple-touch-icon" href="/apple-touch-icon.png">
 <meta name="color-scheme" content="light dark">
 <meta name="theme-color" content="#fafafa" media="(prefers-color-scheme: light)">
 <meta name="theme-color" content="#0b0b0d" media="(prefers-color-scheme: dark)">
 <meta property="og:type" content="website">
+<meta property="og:image" content="{{ site.url }}/brand/og.png">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta property="og:image:alt" content="TinkerBelle: run TypeScript against your real app.">
+<meta name="twitter:card" content="summary_large_image">
 <meta property="og:site_name" content="{{ site.name }}">
 <meta property="og:title" content="{{ headTitle }}">
 <meta property="og:description" content="{{ headDescription }}">
 <meta property="og:url" content="{{ headUrl }}">
-<meta name="twitter:card" content="summary">
 <link rel="preload" href="/fonts/geist-latin.woff2" as="font" type="font/woff2" crossorigin>
 <link rel="preload" href="/fonts/geist-mono-latin.woff2" as="font" type="font/woff2" crossorigin>

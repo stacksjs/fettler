@@ -18,6 +18,8 @@ export default {
     appId: 'app.tinkerbelle.desktop',
     description: 'Run TypeScript against your app, here or on a server.',
     homepage: origin,
+    // 1024 pixels square; the build makes each platform's icon from it.
+    icon: 'resources/brand/app-icon.png',
     window: { width: 1280, height: 800 },
     agent: {
       entry: 'app/Desktop/Agent.ts',
