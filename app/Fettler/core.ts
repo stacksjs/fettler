@@ -62,6 +62,8 @@ export async function createFettler(options: FettlerOptions): Promise<Fettler> {
   const secrets = options.secrets ?? keychain
   const assistant = new Assistant(store, secrets)
   const licensing = new Licensing(store, secrets, options.licensing)
+  // Log follows are child processes with no end of their own. Whatever is still open when the app stops is stopped with it.
+  const follows = new Set<{ stop: () => void }>()
 
   let runner: Runner | undefined
   let connection: Connection | undefined
@@ -435,6 +437,8 @@ export async function createFettler(options: FettlerOptions): Promise<Fettler> {
             }
           }
           follow = followLog(command, send)
+          follows.add(follow)
+          void follow.ended.then(() => follows.delete(follow!))
           void follow.ended.then((ended) => {
             if (ended.error)
               send({ level: 'error', message: ended.error, raw: ended.error, ended: true })
@@ -521,6 +525,8 @@ export async function createFettler(options: FettlerOptions): Promise<Fettler> {
     stop() {
       runner?.stop()
       language?.stop()
+      for (const follow of follows)
+        follow.stop()
       store.close()
     },
   }
