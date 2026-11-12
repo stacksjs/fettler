@@ -17,6 +17,8 @@ export interface RunnerCommand {
   /** Where to spawn it. A remote target's own directory is part of its command. */
   cwd?: string
   env?: Record<string, string | undefined>
+  /** Bytes to write to stdin before any request: the runner itself, for a target that has none. */
+  preamble?: Uint8Array
 }
 
 export type RunnerFrame = TinkerFrame | { type: 'stray', id: string, stream: 'stdout' | 'stderr', text: string }
@@ -45,6 +47,11 @@ export class Runner {
       stdout: 'pipe',
       stderr: 'pipe',
     })
+
+    if (target.preamble) {
+      this.proc.stdin.write(target.preamble)
+      this.proc.stdin.flush()
+    }
 
     let resolveReady!: (info: TinkerSessionInfo) => void
     let rejectReady!: (error: Error) => void
