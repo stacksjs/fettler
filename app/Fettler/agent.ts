@@ -2,6 +2,7 @@ import type { Connection } from './targets'
 import { join } from 'node:path'
 import process from 'node:process'
 import { findLanguageServer, LanguageService } from './language'
+import { followLog, logCommand } from './logs'
 import { Runner } from './runner'
 import { Store } from './store'
 import { containerWorkdir, listContainers, listKubeContexts, listKubeNamespaces, listKubePods } from './remote'
@@ -196,6 +197,45 @@ export async function startAgent(options: { port?: number, quiet?: boolean, stor
       catch (error) {
         return json({ error: error instanceof Error ? error.message : String(error) }, error instanceof ConnectionError ? 422 : 502)
       }
+    }
+
+    if (path === '/__fettler/logs' && request.method === 'GET') {
+      if (!connection)
+        return json({ error: 'Open a project first.' }, 409)
+      const from = new URL(request.url).searchParams.get('from') === 'runtime' ? 'runtime' : 'file'
+      const command = logCommand(connection, { from, lines: 200 })
+      if (!command)
+        return json({ error: 'This target has no log to follow.' }, 422)
+      const encoder = new TextEncoder()
+      let follow: ReturnType<typeof followLog> | undefined
+      // The response stays open for as long as the window reads it; closing the panel ends the follow.
+      const stream = new ReadableStream<Uint8Array>({
+        start(controller) {
+          const send = (item: unknown): void => {
+            try {
+              controller.enqueue(encoder.encode(`${JSON.stringify(item)}\n`))
+            }
+            catch {
+              follow?.stop()
+            }
+          }
+          follow = followLog(command, send)
+          void follow.ended.then((ended) => {
+            if (ended.error)
+              send({ level: 'error', message: ended.error, raw: ended.error, ended: true })
+            try {
+              controller.close()
+            }
+            catch {
+              // Already closed by the reader.
+            }
+          })
+        },
+        cancel() {
+          follow?.stop()
+        },
+      })
+      return new Response(stream, { headers: { 'content-type': 'application/x-ndjson', 'cache-control': 'no-store' } })
     }
 
     if (path === '/__fettler/history') {

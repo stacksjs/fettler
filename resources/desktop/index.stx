@@ -27,6 +27,76 @@ const editorRef = ref()
 let checkTimer = 0
 let checkSerial = 0
 
+const view = state('result')
+const logLines = state([])
+const logLevel = state('all')
+const logQuery = state('')
+const logFollowing = state(false)
+const logNote = state('')
+let logAbort = null
+
+const LOG_RANK = { debug: 0, info: 1, success: 1, warning: 2, error: 3 }
+const shownLogs = derived(() => {
+  const floor = logLevel() === 'all' ? -1 : LOG_RANK[logLevel()]
+  const query = logQuery().trim().toLowerCase()
+  return logLines().filter(line => LOG_RANK[line.level] >= floor && (!query || line.raw.toLowerCase().includes(query)))
+})
+
+function stopLogs() {
+  if (logAbort) logAbort.abort()
+  logAbort = null
+  logFollowing.set(false)
+}
+
+// Lines are read from a response that stays open: each one is shown as the target writes it.
+async function followLogs() {
+  stopLogs()
+  logLines.set([])
+  logNote.set('')
+  if (!connected()) return
+  logAbort = new AbortController()
+  logFollowing.set(true)
+  try {
+    const response = await fetch('/__fettler/logs', { signal: logAbort.signal })
+    if (!response.ok || !response.body) {
+      const body = await response.json().catch(() => ({}))
+      logNote.set(body.error || 'The log could not be followed.')
+      return
+    }
+    const reader = response.body.getReader()
+    const decoder = new TextDecoder()
+    let pending = ''
+    for (;;) {
+      const { value, done } = await reader.read()
+      if (done) break
+      pending += decoder.decode(value, { stream: true })
+      const parts = pending.split('\n')
+      pending = parts.pop() || ''
+      const fresh = parts.filter(Boolean).map(part => JSON.parse(part))
+      if (fresh.length) logLines.set([...logLines(), ...fresh].slice(-2000))
+    }
+  }
+  catch (cause) {
+    if (!(cause && cause.name === 'AbortError')) logNote.set(cause instanceof Error ? cause.message : 'The log stopped.')
+  }
+  finally {
+    logFollowing.set(false)
+  }
+}
+
+function showView(name) {
+  view.set(name)
+  if (name === 'logs' && !logFollowing()) void followLogs()
+  if (name !== 'logs') stopLogs()
+}
+
+function logClass(level) {
+  if (level === 'error') return 'text-red-700 dark:text-red-300'
+  if (level === 'warning') return 'text-amber-700 dark:text-amber-300'
+  if (level === 'debug') return 'text-neutral-400'
+  return 'text-neutral-700 dark:text-neutral-200'
+}
+
 const connectOpen = state(false)
 const connectKind = state('ssh')
 const form = state({ host: '', user: '', port: '', identityFile: '', jump: '', directory: '', envFile: '.env', container: '', pod: '', namespace: '', context: '' })
@@ -418,7 +488,37 @@ void loadState()
           />
         </section>
 
-        <section class="flex flex-col gap-3 p-3 min-h-0 min-w-0 overflow-y-auto" aria-label="Result" aria-live="polite">
+        <section class="flex flex-col min-h-0 min-w-0" aria-label="Result and logs">
+          <div class="flex gap-1 items-center px-2 h-9 border-b border-neutral-200 dark:border-neutral-800 shrink-0" role="tablist">
+            <button type="button" role="tab" :aria-selected="view() === 'result' ? 'true' : 'false'" :class="view() === 'result' ? 'px-2.5 h-6 text-xs font-medium bg-neutral-200 dark:bg-neutral-800 rounded' : 'px-2.5 h-6 text-xs text-neutral-500 rounded'" @click="showView('result')" data-fettler-tab-result>Result</button>
+            <button type="button" role="tab" :aria-selected="view() === 'logs' ? 'true' : 'false'" :class="view() === 'logs' ? 'px-2.5 h-6 text-xs font-medium bg-neutral-200 dark:bg-neutral-800 rounded' : 'px-2.5 h-6 text-xs text-neutral-500 rounded'" @click="showView('logs')" data-fettler-tab-logs>Logs</button>
+            @if(view() === 'logs')
+              <select :value="logLevel()" @change="logLevel.set($event.target.value)" aria-label="Lowest level to show" class="ml-auto px-1.5 h-6 text-xs bg-white dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-800 rounded">
+                <option value="all">All levels</option>
+                <option value="info">Info and up</option>
+                <option value="warning">Warnings and errors</option>
+                <option value="error">Errors</option>
+              </select>
+              <input type="text" :value="logQuery()" @input="logQuery.set($event.target.value)" placeholder="Filter" aria-label="Filter log lines" class="px-2 w-40 h-6 text-xs bg-white dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-800 rounded focus:outline-none">
+              <span class="text-[11px] text-neutral-400" data-fettler-log-state>{{ logFollowing() ? 'following' : 'stopped' }}</span>
+            @endif
+          </div>
+
+          @if(view() === 'logs')
+            <div class="flex-1 min-h-0 overflow-y-auto p-2 font-mono text-[11px] leading-5" data-fettler-logs>
+              @if(logNote())
+                <p class="px-1 text-red-700 dark:text-red-300" role="alert">{{ logNote() }}</p>
+              @endif
+              @foreach(shownLogs() as line)
+                <div :class="logClass(line.level)" class="flex gap-2 px-1"><span class="text-neutral-400 shrink-0">{{ line.time ? line.time.slice(11, 19) : '' }}</span><span class="w-12 uppercase shrink-0">{{ line.level }}</span><span class="min-w-0 break-words whitespace-pre-wrap">{{ line.message }}</span></div>
+              @endforeach
+              @if(!logNote() && shownLogs().length === 0)
+                <p class="px-1 text-neutral-500">{{ connected() ? 'No lines yet.' : 'Open a project to follow its log.' }}</p>
+              @endif
+            </div>
+          @endif
+
+          <div :class="view() === 'result' ? 'flex flex-col flex-1 gap-3 p-3 min-h-0 overflow-y-auto' : 'hidden'" aria-live="polite">
           @if(!connected())
             <p class="text-neutral-500 text-sm dark:text-neutral-400">Open a project or the sandbox, then run with Cmd+Enter.</p>
           @endif
@@ -454,6 +554,7 @@ void loadState()
               </ul>
             </article>
           @endif
+          </div>
         </section>
       </main>
 
