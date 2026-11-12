@@ -65,10 +65,10 @@
   },
   "dependencies": {
     "@stacksjs/stx": "0.2.862",
-    "stacks": "^0.75.548",
-    "@stacksjs/env": "^0.75.548",
-    "@stacksjs/path": "^0.75.548",
-    "@stacksjs/actions": "^0.75.548"
+    "stacks": "^0.75.555",
+    "@stacksjs/env": "^0.75.555",
+    "@stacksjs/path": "^0.75.555",
+    "@stacksjs/actions": "^0.75.555"
   },
   "workspaces": [
     "storage/framework",

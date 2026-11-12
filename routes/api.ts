@@ -35,3 +35,5 @@ route.get('/hello', () => response.text('hello world'))
 // The desktop app's update feed. Mounted here by name so it is served whatever
 // STACKS_DEFAULT_ROUTES says: production runs with the default bundles off.
 route.get('/updates/{platform}/{arch}', 'Actions/Desktop/UpdateFeedAction')
+// A published build, streamed from the updates disk: what the feed's manifests and the download page link to.
+route.get('/updates/files/{channel}/{target}/{version}/{file}', 'Actions/Desktop/UpdateArtifactAction')
