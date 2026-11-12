@@ -247,7 +247,8 @@ async function loadBoxes() {
     const body = await response.json()
     if (!response.ok) throw new Error(body.error || 'The deploys could not be listed.')
     boxes.set(body.targets || [])
-    boxesNote.set(body.targets && body.targets.length ? (body.warnings || []).join(' ') : 'This project has no server deploys for production.')
+    // The project's own words when it has them: "not deployed from this checkout" is more use than "none".
+    boxesNote.set((body.warnings || []).join(' ') || (body.targets && body.targets.length ? '' : 'This project has no server deploys for production.'))
   }
   catch (cause) {
     boxesNote.set(cause instanceof Error ? cause.message : 'The deploys could not be listed.')
