@@ -908,6 +908,22 @@ async function complete(detail) {
   if (items.length) editor.showCompletions(items, { from: detail.from })
 }
 
+// What a word is: asked for when the pointer rests on it, or with Cmd/Ctrl+I at the caret.
+async function onHover(request) {
+  if (!connected() || !request) return
+  const body = await language('hover', code(), request.line, request.column)
+  const editor = editorRef.value && editorRef.value.__stx_exposed
+  if (editor && editor.showHover && body.hover) editor.showHover(body.hover, { line: request.line, column: request.column })
+}
+
+// The call being typed: its parameters, and which one the caret is on.
+async function onSignature(request) {
+  if (!connected() || !request) return
+  const body = await language('signature', code(), request.line, request.column)
+  const editor = editorRef.value && editorRef.value.__stx_exposed
+  if (editor && editor.showSignature) editor.showSignature(body.signature || null)
+}
+
 function scheduleCheck() {
   clearTimeout(checkTimer)
   if (!connected()) return
@@ -1054,6 +1070,8 @@ void loadLicense()
             @selection="onSelection($event)"
             @input="scheduleCheck(); scheduleSuggest(); scheduleSave()"
             @complete="complete($event)"
+            @hover="onHover($event)"
+            @signature="onSignature($event)"
             @run="runAll($event)"
             @run-selection="runSelection($event)"
           />

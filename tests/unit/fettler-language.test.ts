@@ -24,6 +24,14 @@ describe.skipIf(!binary)('language service on this app', () => {
     expect(diagnostics[0]!.message).toContain('not assignable to type \'number\'')
   }, 30_000)
 
+  test('names the parameter being typed inside a call', async () => {
+    const text = 'function greet(name: string, times: number) {}\ngreet("Ada", '
+    const help = await service!.signature(text, { line: 1, column: 13 })
+    expect(help?.label).toContain('greet(name: string, times: number)')
+    expect(help?.parameters.map(parameter => parameter.label)).toEqual(['name: string', 'times: number'])
+    expect(help?.active).toBe(1)
+  }, 30_000)
+
   test('hovers a global with its type', async () => {
     const hover = await service!.hover('User', { line: 0, column: 1 })
     expect(hover).toContain('User')

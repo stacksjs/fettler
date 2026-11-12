@@ -24,6 +24,14 @@ export interface CompletionEntry {
   sort?: string
 }
 
+export interface SignatureHelp {
+  label: string
+  parameters: { label: string, documentation?: string }[]
+  /** The index of the parameter being typed. */
+  active: number
+  documentation?: string
+}
+
 export interface Diagnostic {
   from: Position
   to: Position
@@ -102,6 +110,7 @@ export class LanguageService {
         textDocument: {
           completion: { completionItem: { snippetSupport: false, labelDetailsSupport: true } },
           hover: { contentFormat: ['plaintext', 'markdown'] },
+          signatureHelp: { signatureInformation: { documentationFormat: ['plaintext', 'markdown'], parameterInformation: { labelOffsetSupport: true }, activeParameterSupport: true } },
           diagnostic: {},
         },
       },
@@ -207,6 +216,27 @@ export class LanguageService {
     if (Array.isArray(contents))
       return contents.map(part => typeof part === 'string' ? part : (part as { value?: string }).value ?? '').join('\n')
     return (contents as { value?: string }).value ?? null
+  }
+
+  /** The call the position is inside: its signature, its parameters and which one is being typed. */
+  async signature(text: string, at: Position): Promise<SignatureHelp | null> {
+    await this.sync(text)
+    const result = await this.request('textDocument/signatureHelp', { textDocument: { uri: this.uri }, position: { line: at.line, character: at.column } }) as { signatures?: any[], activeSignature?: number, activeParameter?: number } | null
+    const chosen = result?.signatures?.[result.activeSignature ?? 0]
+    if (!chosen || typeof chosen.label !== 'string')
+      return null
+    const told = (value: unknown): string | undefined => typeof value === 'string' ? value : (value as { value?: string } | undefined)?.value
+    const parameters = (chosen.parameters ?? []).map((parameter: { label: string | [number, number], documentation?: unknown }) => ({
+      // A parameter is named by its text, or by where it sits in the signature's label.
+      label: typeof parameter.label === 'string' ? parameter.label : chosen.label.slice(parameter.label[0], parameter.label[1]),
+      ...(told(parameter.documentation) ? { documentation: told(parameter.documentation) } : {}),
+    }))
+    return {
+      label: chosen.label,
+      parameters,
+      active: chosen.activeParameter ?? result?.activeParameter ?? 0,
+      ...(told(chosen.documentation) ? { documentation: told(chosen.documentation) } : {}),
+    }
   }
 
   async diagnostics(text: string): Promise<Diagnostic[]> {

@@ -244,6 +244,8 @@ export async function createFettler(options: FettlerOptions): Promise<Fettler> {
           return json({ available: true, items: await language.complete(body.text, at) })
         if (body.op === 'hover')
           return json({ available: true, hover: await language.hover(body.text, at) })
+        if (body.op === 'signature')
+          return json({ available: true, signature: await language.signature(body.text, at) })
         if (body.op === 'diagnostics')
           return json({ available: true, diagnostics: await language.diagnostics(body.text) })
         return json({ error: 'Unknown language request.' }, 400)
