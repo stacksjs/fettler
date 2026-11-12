@@ -1,12 +1,13 @@
 import { productionOrigin } from '../../config/address' with { type: 'macro' }
+import project from '../../package.json'
 
 /**
- * What this build is. The release command rewrites the version and the date;
- * everything else is decided here by hand.
+ * What this build is. The version is the project's own (package.json), which
+ * is also what the desktop build and the update feed use.
  */
 
 /** Stays on 0.x until the owner approves a 1.0. */
-export const VERSION = '0.0.0'
+export const VERSION: string = project.version
 
 /**
  * When this build was released, baked in at release time. A standard license

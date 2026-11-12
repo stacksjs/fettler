@@ -2,6 +2,7 @@
 import { fuzzyFilter } from '../functions/fuzzy'
 import { componentApi } from '@stacksjs/components/component-api'
 import { modelsIn, neighbourhood } from '../functions/relation-graph'
+import { trimHover } from '../functions/hover-text'
 import { gridOf } from '../functions/tinker-table'
 import { renderTinkerValue } from '../functions/tinker-value'
 
@@ -973,7 +974,7 @@ async function onHover(request) {
   if (!connected() || !request) return
   const body = await language('hover', code(), request.line, request.column)
   const editor = editorRef.value && editorRef.value.__stx_exposed
-  if (editor && editor.showHover && body.hover) editor.showHover(body.hover, { line: request.line, column: request.column })
+  if (editor && editor.showHover && body.hover) editor.showHover(request.explicit ? body.hover : trimHover(body.hover), { line: request.line, column: request.column })
 }
 
 // The call being typed: its parameters, and which one the caret is on.
