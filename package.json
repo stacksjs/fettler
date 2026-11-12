@@ -58,7 +58,7 @@
     "test:types": "./buddy test:types",
     "bud": "./buddy",
     "probe:integrations": "./buddy integrations:probe",
-    "desktop": "bun app/Fettler/launcher.ts",
+    "desktop": "./buddy dev:desktop",
     "desktop:agent": "bun app/Fettler/agent.ts",
     "dev:desktop": "./buddy dev:desktop",
     "build:desktop": "./buddy build:desktop"

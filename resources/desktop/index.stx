@@ -827,6 +827,8 @@ function runSelection(detail) {
 
 // App-wide shortcuts work wherever the focus is, including before anything has been clicked.
 useEventListener('keydown', appKey)
+// Coming back to the window picks up what changed while it was away: a project opened by `fettler <path>`, for one.
+useEventListener('focus', () => { void loadState() })
 
 void loadState()
 void loadAi()
