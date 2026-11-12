@@ -8,7 +8,7 @@ import { footerLinks, site } from '~/resources/data/site'
         <span class="size-5 text-accent-ink i-hugeicons-anvil" aria-hidden="true"></span>
         {{ site.name }}
       </a>
-      <p class="mt-3 leading-relaxed text-muted text-sm">A desktop app that runs TypeScript against your Stacks app. In development, built with <a href="https://stacksjs.com" class="link" rel="noopener">Stacks</a>.</p>
+      <p class="mt-3 leading-relaxed text-muted text-sm">A desktop app that runs TypeScript against your Stacks app. In early beta, built with <a href="https://stacksjs.com" class="link" rel="noopener">Stacks</a>.</p>
     </div>
     <nav class="grid gap-x-10 gap-y-3 grid-cols-2 sm:grid-cols-4 md:grid-cols-2 lg:grid-cols-4 text-sm" aria-label="Footer">
       @foreach(footerLinks as link)

@@ -40,7 +40,7 @@ export const groups: CompareGroup[] = [
       },
       {
         topic: 'Availability',
-        fettler: 'In development. No download yet.',
+        fettler: 'Early beta for macOS. Windows and Linux are not built yet.',
         tinkerwell: 'Shipping today, at version 5.',
         edge: 'tinkerwell',
         source: `${T}/whats-new-in-tinkerwell-5`,
