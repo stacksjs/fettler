@@ -19,6 +19,11 @@ declare global {
   const toggleDark: typeof autoImports.toggleDark
   const fuzzyScore: typeof autoImports.fuzzyScore
   const fuzzyFilter: typeof autoImports.fuzzyFilter
+  const cellText: typeof autoImports.cellText
+  const tableOf: typeof autoImports.tableOf
+  const tableToCsv: typeof autoImports.tableToCsv
+  const tableToJson: typeof autoImports.tableToJson
+  const viewRows: typeof autoImports.viewRows
   const renderTinkerValue: typeof autoImports.renderTinkerValue
 }
 
