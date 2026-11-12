@@ -2,6 +2,7 @@
 import { fuzzyFilter } from '../functions/fuzzy'
 import { componentApi } from '@stacksjs/components/component-api'
 import { modelsIn, neighbourhood } from '../functions/relation-graph'
+import { announcePreferences, onPreferences, onSettingsRequested, openSettingsWindow } from '../functions/desktop-bridge'
 import { trimHover } from '../functions/hover-text'
 import { gridOf } from '../functions/tinker-table'
 import { renderTinkerValue } from '../functions/tinker-value'
@@ -450,7 +451,8 @@ const VIEW_OFF = 'px-1.5 h-5 rounded hover:text-neutral-900 dark:hover:text-neut
 
 const tabs = state([{ id: 't1', title: 'Untitled', code: code() }])
 const activeTab = state('t1')
-const ui = state({ theme: 'system', fontSize: 13 })
+// The preferences Settings changes (app/TinkerBelle/preferences.ts holds the list and its defaults).
+const ui = state({ theme: 'system', startup: 'sandbox', fontSize: 13, tabSize: 2, lineNumbers: true, completions: true, hover: true, signatureHelp: true, openPaneOnRun: true })
 let saveTimer = 0
 let tabCounter = 1
 
@@ -458,7 +460,8 @@ let tabCounter = 1
 const systemDark = useMediaQuery('(prefers-color-scheme: dark)')
 const themeClass = derived(() => ui().theme === 'dark' || (ui().theme !== 'light' && systemDark()) ? 'dark' : 'light')
 const editorTheme = derived(() => ui().theme === 'system' ? undefined : ui().theme)
-const editorStyle = derived(() => `--stx-code-font-size: ${ui().fontSize}px; --stx-code-line-height: ${Math.round(ui().fontSize * 1.55)}px`)
+// The editor sets its own size on itself, which an inherited value cannot change: the page's rule below hands these to it.
+const editorStyle = derived(() => `--tb-code-size: ${ui().fontSize}px; --tb-code-line: ${Math.round(ui().fontSize * 1.55)}px`)
 
 function tabTitle(tab) {
   const line = (tab.code || '').split('\n').find(part => part.trim()) || ''
@@ -470,7 +473,7 @@ function scheduleSave() {
   clearTimeout(saveTimer)
   saveTimer = setTimeout(() => {
     const current = tabs().map(tab => tab.id === activeTab() ? { ...tab, code: code() } : tab)
-    void fetch('/__tinkerbelle/workspace', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ tabs: current, active: activeTab(), ui: ui() }) })
+    void fetch('/__tinkerbelle/workspace', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ tabs: current, active: activeTab() }) })
   }, 500)
 }
 
@@ -517,16 +520,24 @@ function closeTab(id) {
   scheduleSave()
 }
 
-function setUi(name, value) {
+// One preference changed here: kept by the agent, and told to the app's other windows.
+async function setUi(name, value) {
   ui.set({ ...ui(), [name]: value })
-  scheduleSave()
+  const response = await fetch('/__tinkerbelle/preferences', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ [name]: value }) })
+  if (!response.ok) return
+  ui.set(await response.json())
+  announcePreferences(ui())
+}
+
+async function loadPreferences() {
+  const response = await fetch('/__tinkerbelle/preferences')
+  if (response.ok) ui.set(await response.json())
 }
 
 async function loadWorkspace() {
   const response = await fetch('/__tinkerbelle/workspace')
   if (!response.ok) return
   const body = await response.json()
-  if (body.ui && body.ui.fontSize) ui.set({ theme: body.ui.theme || 'system', fontSize: body.ui.fontSize })
   if (Array.isArray(body.tabs) && body.tabs.length) {
     tabs.set(body.tabs)
     const active = body.tabs.find(tab => tab.id === body.active) || body.tabs[0]
@@ -595,8 +606,13 @@ async function loadState() {
   const body = await response.json()
   const first = firstState
   firstState = false
-  // With nothing open, the sandbox is: the editor should run something the moment the window is up.
-  if (first && !body.connection) { void connect({ kind: 'sandbox' }) }
+  // With nothing open, the window connects to what Settings says it should: the sandbox unless told otherwise,
+  // so the editor can run something the moment it is up.
+  if (first && !body.connection) {
+    const last = (body.recent || []).find(item => item.kind === 'local' || (item.spec && item.kind !== 'sandbox'))
+    if (ui().startup === 'last' && last) void connect(last.kind === 'local' ? { kind: 'local', path: last.path } : last.spec)
+    else if (ui().startup !== 'nothing') void connect({ kind: 'sandbox' })
+  }
   connection.set(body.connection)
   recent.set(body.recent || [])
   if (body.note && !notice()) notice.set(body.note)
@@ -612,6 +628,7 @@ function firstLine(text) {
 const paletteItems = derived(() => {
   const items = [
     { kind: 'action', id: 'run', title: 'Run', hint: `${MOD}+Enter` },
+    { kind: 'action', id: 'settings', title: 'Settings', hint: `${MOD}+,` },
     { kind: 'action', id: 'open', title: 'Open a project', hint: `${MOD}+O` },
     { kind: 'action', id: 'sandbox', title: 'Open the sandbox', hint: '' },
     { kind: 'action', id: 'remote', title: 'Connect to a server, container or pod', hint: '' },
@@ -683,6 +700,9 @@ async function choose(item) {
   }
   else if (item.id === 'pane') {
     togglePane()
+  }
+  else if (item.id === 'settings') {
+    await openSettingsWindow()
   }
   else if (item.id === 'open') {
     switcherOpen.set(true)
@@ -756,7 +776,11 @@ function appKey(event) {
   }
   if (!(event.metaKey || event.ctrlKey)) return
   const key = event.key.toLowerCase()
-  if (key === 'k') {
+  if (key === ',') {
+    event.preventDefault()
+    void openSettingsWindow()
+  }
+  else if (key === 'k') {
     event.preventDefault()
     if (paletteOpen()) closePalette()
     else void openPalette()
@@ -905,7 +929,7 @@ async function run(source) {
   if (running() || !connected()) return
   running.set(true)
   view.set('result')
-  paneOpen.set(true)
+  if (ui().openPaneOnRun) paneOpen.set(true)
   stopLogs()
   output.set('')
   result.set('')
@@ -1016,9 +1040,13 @@ function runSelection(detail) {
 // App-wide shortcuts work wherever the focus is, including before anything has been clicked.
 useEventListener('keydown', appKey)
 // Coming back to the window picks up what changed while it was away: a project opened by `tinkerbelle <path>`, for one.
-useEventListener('focus', () => { void loadState(); void loadUpdate() })
+useEventListener('focus', () => { void loadState(); void loadUpdate(); void loadPreferences() })
+// Settings is its own window: what it changes is applied here as it changes.
+onPreferences((changed) => { if (changed && typeof changed === 'object') ui.set({ ...ui(), ...changed }) })
+onSettingsRequested(() => { void openSettingsWindow() })
 
-void loadState()
+// Preferences first: what the window connects to at launch is one of them.
+void loadPreferences().then(loadState)
 void loadAi()
 void loadMcp()
 void loadWorkspace()
@@ -1035,7 +1063,7 @@ void loadUpdate()
     <title>TinkerBelle</title>
     <style>
       /* The editor is the window: no frame of its own, and the page's background behind the code. */
-      [data-tinkerbelle-editor] [data-stx-code-editor] { border: 0; border-radius: 0; --stx-code-bg: transparent; --stx-code-padding-y: 14px; --stx-code-padding-x: 16px; }
+      [data-tinkerbelle-editor] [data-stx-code-editor] { border: 0; border-radius: 0; --stx-code-bg: transparent; --stx-code-padding-y: 14px; --stx-code-padding-x: 16px; --stx-code-font-size: var(--tb-code-size, 13px); --stx-code-line-height: var(--tb-code-line, 20px); }
       /* The caret and the selection carry the brand's brass; nothing else in the window is coloured. */
       [data-tinkerbelle-app] { --stx-accent: #d99a1c; }
       .tinkerbelle-pane { width: 44%; min-width: 320px; max-width: 760px; }
@@ -1129,7 +1157,11 @@ void loadUpdate()
             @ref="editorRef"
             :diagnostics="diagnostics()"
             :widgets="widgets()"
-            :autoComplete="true"
+            :autoComplete="ui().completions"
+            :hover="ui().hover"
+            :signatureHelp="ui().signatureHelp"
+            :tabSize="ui().tabSize"
+            :lineNumbers="ui().lineNumbers"
             :ghostText="ghost()"
             @selection="onSelection($event)"
             @input="scheduleCheck(); scheduleSuggest(); scheduleSave()"
