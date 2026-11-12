@@ -52,6 +52,17 @@ jobs:
           chmod +x appimagetool
           sudo mv appimagetool /usr/local/bin/appimagetool
 
+      # The framework fetches the runtime for every other platform. This
+      # machine's own it expects to find, so it is fetched here, pinned to the
+      # Craft release the lockfile resolves and to that file's checksum.
+      - name: Fetch this runner's Craft runtime
+        run: |
+          curl -fsSL -o craft-linux-x64.zip https://github.com/craft-native/craft/releases/download/v0.0.500/craft-linux-x64.zip
+          echo "e6937672d4a73f9d75acc6f127dbbe81661874a3d550e6f45168b1ee6c8715cb  craft-linux-x64.zip" | sha256sum --check
+          mkdir -p "$RUNNER_TEMP/craft" && unzip -oq craft-linux-x64.zip -d "$RUNNER_TEMP/craft" && rm craft-linux-x64.zip
+          chmod +x "$RUNNER_TEMP/craft/craft"
+          echo "CRAFT_BIN=$RUNNER_TEMP/craft/craft" >> "$GITHUB_ENV"
+
       - name: Check the address
         env:
           APP_URL: ${{ vars.APP_URL }}
