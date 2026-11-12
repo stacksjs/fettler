@@ -8,6 +8,8 @@ import { renderValue } from '@stacksjs/tinker'
 import { AiNotReady, Assistant, keychain } from './ai'
 import { BoxesUnavailable, listBoxes } from './boxes'
 import { DRIVER_BOOTSTRAP, PANELS_SNIPPET, plain, toPanels } from './driver'
+import type { Preferences } from './preferences'
+import { mergePreferences } from './preferences'
 import { findLanguageServer, LanguageService } from './language'
 import { Licensing, ProRequired } from './license'
 import { followLog, logCommand } from './logs'
@@ -363,6 +365,21 @@ export async function createTinkerBelle(options: TinkerBelleOptions): Promise<Ti
           })
         }
         return json({ ok: true })
+      }
+    }
+
+    if (path === '/__tinkerbelle/preferences') {
+      // What Settings changes. A window that was open before this build kept its look in the workspace, so that is where a first read starts.
+      const stored = (): Preferences => mergePreferences(store.setting('workspace.ui', {}) as Partial<Preferences>, store.setting('preferences', {}))
+      if (request.method === 'GET')
+        return json(stored())
+      if (request.method === 'POST') {
+        const body = await request.json().catch(() => null)
+        if (!body || typeof body !== 'object')
+          return json({ error: 'Nothing was sent.' }, 400)
+        const next = mergePreferences(stored(), body)
+        store.setSetting('preferences', next)
+        return json(next)
       }
     }
 
