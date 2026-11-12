@@ -218,6 +218,22 @@ function useCode(source) {
   showView('result')
 }
 
+const mcpOpen = state(false)
+const mcp = state({ enabled: false, address: '', token: '' })
+
+async function loadMcp() {
+  const response = await fetch('/__fettler/mcp-settings')
+  if (response.ok) mcp.set({ token: '', ...(await response.json()) })
+}
+
+async function setMcp(enabled) {
+  const response = await fetch('/__fettler/mcp-settings', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ enabled }) })
+  if (response.ok) mcp.set({ token: '', ...(await response.json()) })
+}
+
+// What an MCP client is given: the address and the bearer token, in the shape most of them take.
+const mcpConfig = derived(() => JSON.stringify({ mcpServers: { fettler: { type: 'http', url: mcp().address, headers: { Authorization: `Bearer ${mcp().token || 'the token shown when you turned this on'}` } } } }, null, 2))
+
 const connectOpen = state(false)
 const connectKind = state('ssh')
 const form = state({ host: '', user: '', port: '', identityFile: '', jump: '', directory: '', envFile: '.env', container: '', pod: '', namespace: '', context: '' })
@@ -251,6 +267,7 @@ const paletteItems = derived(() => {
     { kind: 'action', id: 'sandbox', title: 'Open the sandbox', hint: '' },
     { kind: 'action', id: 'remote', title: 'Connect to a server, container or pod', hint: '' },
     { kind: 'action', id: 'assistant', title: 'Ask the assistant', hint: '' },
+    { kind: 'action', id: 'mcp', title: 'Let AI tools use Fettler (MCP)', hint: mcp().enabled ? 'on' : 'off' },
     { kind: 'action', id: 'ai-settings', title: 'AI settings', hint: ai().enabled ? ai().provider : 'off' },
     { kind: 'action', id: 'suggest', title: 'Suggest at the cursor', hint: 'Alt+Backslash' },
     { kind: 'action', id: 'save', title: 'Save as snippet', hint: firstLine(code()) },
@@ -305,6 +322,10 @@ async function choose(item) {
   }
   else if (item.id === 'ai-settings') {
     aiOpen.set(true)
+  }
+  else if (item.id === 'mcp') {
+    await loadMcp()
+    mcpOpen.set(true)
   }
   else if (item.id === 'suggest') {
     await suggest()
@@ -560,6 +581,7 @@ function runSelection(detail) {
 
 void loadState()
 void loadAi()
+void loadMcp()
 </script>
 
 @nolayout
@@ -730,6 +752,32 @@ void loadAi()
           </div>
         </section>
       </main>
+
+      @if(mcpOpen())
+        <div class="fixed inset-0 z-40 flex items-start justify-center pt-20 bg-black/30" @click.self="mcpOpen.set(false)" data-fettler-mcp>
+          <div class="w-full max-w-lg bg-white dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-700 rounded-xl shadow-2xl" role="dialog" aria-modal="true" aria-label="MCP settings">
+            <div class="grid gap-3 p-4">
+              <p class="text-sm">Let an AI tool such as Claude or Cursor run code through Fettler, in the connections you have opened. It works while Fettler is open.</p>
+              <p class="text-[11px] text-neutral-500">A production connection is refused unless the tool is told to confirm it. Turning this on makes a new token and ends the old one.</p>
+              @if(mcp().enabled)
+                <pre class="p-3 overflow-x-auto font-mono text-[11px] bg-neutral-100 dark:bg-neutral-950 border border-neutral-200 dark:border-neutral-800 rounded-md" data-fettler-mcp-config>{{ mcpConfig() }}</pre>
+                @if(!mcp().token)
+                  <p class="text-[11px] text-neutral-500">The token was shown once when this was turned on. Turn it off and on again for a new one.</p>
+                @endif
+              @endif
+            </div>
+            <div class="flex gap-2 justify-end px-4 py-3 border-t border-neutral-200 dark:border-neutral-800">
+              <button type="button" class="px-3 h-8 text-xs border border-neutral-200 dark:border-neutral-700 rounded-md" @click="mcpOpen.set(false)">Close</button>
+              @if(mcp().enabled)
+                <button type="button" class="px-3 h-8 text-xs border border-neutral-200 dark:border-neutral-700 rounded-md" @click="setMcp(false)">Turn off</button>
+              @endif
+              @if(!mcp().enabled)
+                <button type="button" class="px-3 h-8 font-medium text-white text-xs bg-neutral-900 dark:bg-neutral-100 dark:text-neutral-900 rounded-md" @click="setMcp(true)">Turn on</button>
+              @endif
+            </div>
+          </div>
+        </div>
+      @endif
 
       @if(aiOpen())
         <div class="fixed inset-0 z-40 flex items-start justify-center pt-20 bg-black/30" @click.self="aiOpen.set(false)" data-fettler-ai-settings>
