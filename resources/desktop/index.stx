@@ -13,6 +13,11 @@ const failure = state('')
 const duration = state('')
 const queries = state([])
 
+const diagnostics = state([])
+const editorRef = ref()
+let checkTimer = 0
+let checkSerial = 0
+
 const connected = derived(() => connection() !== null)
 const targetLabel = derived(() => connection() ? connection().label : 'Not connected')
 
@@ -35,6 +40,7 @@ async function connect(target) {
     const body = await response.json()
     if (!response.ok) throw new Error(body.error || 'Could not connect.')
     connection.set(body.connection)
+    scheduleCheck()
     const warnings = body.session?.warnings || []
     notice.set(warnings.length ? warnings.join(' ') : '')
   }
@@ -98,6 +104,41 @@ async function run(source) {
   }
 }
 
+async function language(op, text, line, column) {
+  const response = await fetch('/__fettler/language', {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({ op, text, line, column }),
+  })
+  return response.ok ? response.json() : {}
+}
+
+// Completions come from the project's own TypeScript server, so a model's
+// columns and an action's parameters are what is offered.
+async function complete(detail) {
+  if (!connected() || !detail) return
+  const body = await language('complete', code(), detail.line, detail.column)
+  // A ref on a component is its element; what the component exposes hangs off it.
+  const editor = editorRef.value && editorRef.value.__stx_exposed
+  if (!editor || !body.items) return
+  const query = (detail.query || '').toLowerCase()
+  const items = body.items
+    .filter(item => !query || item.label.toLowerCase().startsWith(query))
+    .slice(0, 60)
+    .map(item => ({ label: item.label, kind: item.kind, detail: item.detail, insert: item.insert }))
+  if (items.length) editor.showCompletions(items, { from: detail.from })
+}
+
+function scheduleCheck() {
+  clearTimeout(checkTimer)
+  if (!connected()) return
+  checkTimer = setTimeout(async () => {
+    const serial = ++checkSerial
+    const body = await language('diagnostics', code(), 0, 0)
+    if (serial === checkSerial) diagnostics.set(body.diagnostics || [])
+  }, 350)
+}
+
 function runAll(detail) {
   void run(detail && typeof detail.value === 'string' ? detail.value : code())
 }
@@ -147,6 +188,11 @@ void loadState()
             height="100%"
             label="Code to run"
             v-model:value="code"
+            @ref="editorRef"
+            :diagnostics="diagnostics()"
+            :autoComplete="true"
+            @input="scheduleCheck()"
+            @complete="complete($event)"
             @run="runAll($event)"
             @run-selection="runSelection($event)"
           />

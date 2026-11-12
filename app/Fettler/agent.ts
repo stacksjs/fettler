@@ -1,8 +1,9 @@
 import type { Connection } from './targets'
 import { join } from 'node:path'
 import process from 'node:process'
+import { findLanguageServer, LanguageService } from './language'
 import { Runner } from './runner'
-import { commandFor, ConnectionError, summarize } from './targets'
+import { commandFor, ConnectionError, sandboxDirectory, summarize } from './targets'
 
 /**
  * Fettler's local agent: the one process the window talks to.
@@ -51,6 +52,14 @@ export async function startAgent(options: { port?: number, quiet?: boolean } = {
 
   let runner: Runner | undefined
   let connection: Connection | undefined
+  let language: LanguageService | undefined
+
+  // Types come from the project the session is in; the sandbox has none of its own.
+  function startLanguage(target: Connection): LanguageService | undefined {
+    const project = target.kind === 'local' ? target.path : sandboxDirectory()
+    const binary = findLanguageServer(project, root)
+    return binary ? new LanguageService(project, binary, target.kind === 'local' ? 'app/__fettler_scratch__.ts' : 'scratch.ts') : undefined
+  }
 
   const authorized = (request: Request): boolean => {
     const cookies = request.headers.get('cookie') ?? ''
@@ -76,6 +85,8 @@ export async function startAgent(options: { port?: number, quiet?: boolean } = {
         runner?.stop()
         runner = next
         connection = body
+        language?.stop()
+        language = startLanguage(body)
         return json({ connection: summarize(body), session: info })
       }
       catch (error) {
@@ -104,8 +115,31 @@ export async function startAgent(options: { port?: number, quiet?: boolean } = {
       return new Response(stream, { headers: { 'content-type': 'application/x-ndjson', 'cache-control': 'no-store' } })
     }
 
+    if (path === '/__fettler/language' && request.method === 'POST') {
+      const body = await request.json().catch(() => null) as { op?: string, text?: unknown, line?: unknown, column?: unknown } | null
+      if (!body || typeof body.text !== 'string')
+        return json({ error: 'Send the buffer text.' }, 400)
+      if (!language)
+        return json({ available: false, items: [], diagnostics: [], hover: null })
+      const at = { line: Number(body.line) || 0, column: Number(body.column) || 0 }
+      try {
+        if (body.op === 'complete')
+          return json({ available: true, items: await language.complete(body.text, at) })
+        if (body.op === 'hover')
+          return json({ available: true, hover: await language.hover(body.text, at) })
+        if (body.op === 'diagnostics')
+          return json({ available: true, diagnostics: await language.diagnostics(body.text) })
+        return json({ error: 'Unknown language request.' }, 400)
+      }
+      catch (error) {
+        return json({ available: false, error: error instanceof Error ? error.message : String(error), items: [], diagnostics: [], hover: null })
+      }
+    }
+
     if (path === '/__fettler/disconnect' && request.method === 'POST') {
       runner?.stop()
+      language?.stop()
+      language = undefined
       runner = undefined
       connection = undefined
       return json({ ok: true })
@@ -174,6 +208,7 @@ export async function startAgent(options: { port?: number, quiet?: boolean } = {
     windowReady,
     stop() {
       runner?.stop()
+      language?.stop()
     },
   }
 }
