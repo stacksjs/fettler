@@ -29,6 +29,8 @@ export default {
     // Signed update manifests. The private half of this key is DESKTOP_UPDATE_PRIVATE_KEY and never ships.
     updates: {
       feedUrl: 'https://fettler.org/api/updates',
+      // Where a published artifact is downloaded from, whatever machine cut the release.
+      artifactBaseUrl: 'https://fettler.org',
       publicKeys: { main: 'ed25519-public:MCowBQYDK2VwAyEAlJQdc7QeXJPeFKtsh2MkL12IDft7emqNu8vpOz-8bIQ' },
     },
     linux: { categories: ['Development'] },

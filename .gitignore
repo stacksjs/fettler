@@ -209,3 +209,6 @@ docs/erd.md
 # The framework defaults: a link to node_modules/@stacksjs/defaults, made on
 # boot. `buddy publish:defaults` replaces it with a copy you commit instead.
 /storage/framework/defaults
+
+# Published desktop builds (buddy release:desktop on the local disk)
+storage/app/desktop-updates/
