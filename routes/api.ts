@@ -31,3 +31,7 @@ route.get('/hello', () => response.text('hello world'))
 // Launch the site with `./buddy launch`. Maintenance mode (503 page,
 // distinct cookie + state file) is the separate `./buddy down` /
 // `./buddy up` pair.
+
+// The desktop app's update feed. Mounted here by name so it is served whatever
+// STACKS_DEFAULT_ROUTES says: production runs with the default bundles off.
+route.get('/updates/{platform}/{arch}', 'Actions/Desktop/UpdateFeedAction')
