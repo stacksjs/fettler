@@ -2,7 +2,10 @@ import type { CloudConfig } from '@stacksjs/types'
 import type { CloudConfig as TsCloudConfig } from '@stacksjs/ts-cloud'
 import { formerHosts, productionHost } from './address'
 
-const slug = 'tinkerbelle'
+// The deployment's identity on the server, not its name or address: the units, the gateway
+// fragment and the data folder are called this. It predates the app's name and stays, because a
+// new slug is a new tenant with an empty database, while a new name or domain is only APP_URL.
+const slug = 'fettler'
 // The address is APP_URL (config/address.ts). Changing it there moves the site: the next deploy
 // publishes DNS for the new name, issues its certificates and routes it. A name listed in
 // APP_FORMER_DOMAINS keeps answering and redirects here.
@@ -26,8 +29,8 @@ const runtime = {
   STACKS_DEFAULT_ROUTES: 'none',
   STACKS_MODEL_APIS: 'none',
   DB_CONNECTION: 'sqlite',
-  DB_DATABASE: `${data}/tinkerbelle.sqlite`,
-  DB_DATABASE_PATH: `${data}/tinkerbelle.sqlite`,
+  DB_DATABASE: `${data}/${slug}.sqlite`,
+  DB_DATABASE_PATH: `${data}/${slug}.sqlite`,
   DB_SNAPSHOT_PATH: `${data}/db-snapshot`,
   // Desktop builds live on the local disk under ${data}/storage/app/desktop-updates.
   STORAGE_DRIVER: 'local',
