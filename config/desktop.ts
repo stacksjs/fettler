@@ -26,6 +26,11 @@ export default {
       publicPaths: ['/__fettler/mcp'],
     },
     urlSchemes: ['fettler'],
+    // Signed update manifests. The private half of this key is DESKTOP_UPDATE_PRIVATE_KEY and never ships.
+    updates: {
+      feedUrl: 'https://fettler.org/api/updates',
+      publicKeys: { main: 'ed25519-public:MCowBQYDK2VwAyEAlJQdc7QeXJPeFKtsh2MkL12IDft7emqNu8vpOz-8bIQ' },
+    },
     linux: { categories: ['Development'] },
   },
 } satisfies DesktopConfig
