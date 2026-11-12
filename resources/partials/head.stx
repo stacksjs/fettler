@@ -1,0 +1,34 @@
+<script server>
+import { site } from '~/resources/data/site'
+
+// A page names itself by declaring these in its own server script. A page
+// that declares nothing describes the site. The declarations below only tell
+// the type checker the names may exist; they emit nothing.
+declare const pageTitle: string | undefined
+declare const pageDescription: string | undefined
+declare const canonicalPath: string | undefined
+declare const noindex: boolean | undefined
+
+const headTitle = typeof pageTitle !== 'undefined' && pageTitle ? pageTitle : site.title
+const headDescription = typeof pageDescription !== 'undefined' && pageDescription ? pageDescription : site.description
+const headPath = typeof canonicalPath !== 'undefined' && canonicalPath ? canonicalPath : '/'
+const headUrl = `${site.url}${headPath}`
+const headRobots = typeof noindex !== 'undefined' && noindex ? 'noindex' : 'index, follow'
+</script>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>{{ headTitle }}</title>
+<meta name="description" content="{{ headDescription }}">
+<meta name="robots" content="{{ headRobots }}">
+<link rel="canonical" href="{{ headUrl }}">
+<meta name="color-scheme" content="light dark">
+<meta name="theme-color" content="#fafafa" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#0b0b0d" media="(prefers-color-scheme: dark)">
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="{{ site.name }}">
+<meta property="og:title" content="{{ headTitle }}">
+<meta property="og:description" content="{{ headDescription }}">
+<meta property="og:url" content="{{ headUrl }}">
+<meta name="twitter:card" content="summary">
+<link rel="preload" href="/fonts/geist-latin.woff2" as="font" type="font/woff2" crossorigin>
+<link rel="preload" href="/fonts/geist-mono-latin.woff2" as="font" type="font/woff2" crossorigin>

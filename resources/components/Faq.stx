@@ -1,0 +1,21 @@
+<script server>
+import type { FaqItem } from '~/resources/data/faqs'
+
+const props = defineProps<{ items: FaqItem[], heading?: string }>()
+const items = props.items
+const heading = props.heading ?? 'Questions'
+</script>
+<section class="mx-auto px-4 py-16 md:px-8 md:py-24 max-w-3xl">
+  <h2 class="font-semibold text-3xl text-ink tracking-tight">{{ heading }}</h2>
+  <div class="mt-8 border-line border-t">
+    @foreach(items as item)
+      <details class="border-b border-line">
+        <summary class="flex gap-6 items-center justify-between py-5 font-medium text-ink text-lg">
+          {{ item.q }}
+          <span class="shrink-0 size-5 text-muted faq-mark i-hugeicons-plus-sign" aria-hidden="true"></span>
+        </summary>
+        <p class="pb-6 max-w-[62ch] leading-relaxed text-muted">{{ item.a }}</p>
+      </details>
+    @endforeach
+  </div>
+</section>

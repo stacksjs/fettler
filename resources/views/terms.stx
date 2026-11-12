@@ -1,0 +1,44 @@
+@extends('layouts/default')
+@section('content')
+<script server>
+import { formatCents, planById } from '~/app/Billing/plans'
+
+const canonicalPath = '/terms'
+const pageTitle = 'Terms - Fettler'
+const pageDescription = 'The terms for this site and the planned license terms for Fettler, as of the pre-release site.'
+const updated = 'November 11, 2026'
+const standardPrice = formatCents(planById('standard')!.priceCents)
+const lifetimePrice = formatCents(planById('lifetime')!.priceCents)
+</script>
+<article class="mx-auto pb-8 pt-12 px-4 md:pt-20 md:px-8 max-w-3xl">
+  <h1 class="font-semibold leading-[1.05] text-4xl text-ink tracking-tighter md:text-5xl">Terms</h1>
+  <p class="mt-5 text-muted">Last updated {{ updated }}.</p>
+  <div class="prose">
+    <p>Fettler is in development. Nothing is sold or licensed through this site yet, so there is no purchase agreement to accept. This page states what applies today and what the license is planned to be. The full license terms will be published here before checkout opens.</p>
+
+    <h2>This site</h2>
+    <ul>
+      <li>The site describes software that is still being built. Features, platforms and dates can change before release, and the changelog is the record of what actually exists.</li>
+      <li>The site is provided as it is, without warranty.</li>
+    </ul>
+
+    <h2>The planned license</h2>
+    <ul>
+      <li>Fettler will be free to use for local projects and the sandbox.</li>
+      <li>Pro Standard is planned at {{ standardPrice }}: one year of updates, a perpetual fallback license for the last version you received, and activation on 2 devices.</li>
+      <li>Pro Lifetime is planned at {{ lifetimePrice }}, with every future update.</li>
+      <li>Team seats are planned and have no price yet.</li>
+    </ul>
+
+    <h2>Your code and your servers</h2>
+    <ul>
+      <li>Fettler runs the code you write against the app and the targets you choose. You are responsible for what that code does, including on production systems.</li>
+    </ul>
+
+    <h2>Names</h2>
+    <ul>
+      <li>Tinkerwell is a product of Beyond Code. It is named on this site only to compare the two tools, and Fettler is not affiliated with it.</li>
+    </ul>
+  </div>
+</article>
+@endsection

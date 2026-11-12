@@ -1,5 +1,163 @@
-@yield('content')
+<script server>
+// The page tells the nav where it is by declaring `canonicalPath`. The
+// declaration is for the type checker and emits nothing.
+declare const canonicalPath: string | undefined
 
-@yield('footer')
+const navPath = typeof canonicalPath !== 'undefined' && canonicalPath ? canonicalPath : '/'
+</script>
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  @include('head')
+  <style>
+    @font-face {
+      font-family: "Geist";
+      font-style: normal;
+      font-weight: 400 700;
+      font-display: swap;
+      src: url("/fonts/geist-latin-ext.woff2") format("woff2");
+      unicode-range: U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+0304, U+0308, U+0329, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C0, U+2113, U+2C60-2C7F, U+A720-A7FF;
+    }
+    @font-face {
+      font-family: "Geist";
+      font-style: normal;
+      font-weight: 400 700;
+      font-display: swap;
+      src: url("/fonts/geist-latin.woff2") format("woff2");
+      unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+    }
+    @font-face {
+      font-family: "Geist Mono";
+      font-style: normal;
+      font-weight: 400 600;
+      font-display: swap;
+      src: url("/fonts/geist-mono-latin-ext.woff2") format("woff2");
+      unicode-range: U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+0304, U+0308, U+0329, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C0, U+2113, U+2C60-2C7F, U+A720-A7FF;
+    }
+    @font-face {
+      font-family: "Geist Mono";
+      font-style: normal;
+      font-weight: 400 600;
+      font-display: swap;
+      src: url("/fonts/geist-mono-latin.woff2") format("woff2");
+      unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+    }
 
-@stack('scripts')
+    /*
+     * Tokens. Zinc neutrals and one accent, the orange of a grinding spark:
+     * fettling is the trimming and cleaning of a casting. The theme follows
+     * the system and every section stays inside it.
+     *
+     * --accent fills, --accent-ink is the same hue at a contrast that passes
+     * for text, --on-accent is the text on an accent fill in both themes.
+     * The syn-* colours are for code only.
+     */
+    :root {
+      --page: #fafafa;
+      --surface: #ffffff;
+      --tint: #f4f4f5;
+      --ink: #18181b;
+      --muted: #52525b;
+      --line: #e4e4e7;
+      --accent: #e4572e;
+      --accent-ink: #b53d18;
+      --accent-soft: #fdeee8;
+      --on-accent: #18181b;
+      --syn-string: #0f766e;
+      --syn-type: #1d4ed8;
+      --syn-comment: #71717a;
+      --shadow: 0 24px 48px -28px rgb(24 24 27 / 0.28);
+    }
+    @media (prefers-color-scheme: dark) {
+      :root {
+        --page: #0b0b0d;
+        --surface: #131316;
+        --tint: #1a1a1e;
+        --ink: #f4f4f5;
+        --muted: #a1a1aa;
+        --line: #27272a;
+        --accent-ink: #ff8f66;
+        --accent-soft: #2a140c;
+        --syn-string: #5eead4;
+        --syn-type: #93c5fd;
+        --syn-comment: #8b8b94;
+        --shadow: 0 24px 48px -28px rgb(0 0 0 / 0.7);
+      }
+    }
+
+    /* Layers: 20 the sticky nav, 30 the skip link. Nothing else is raised. */
+    html { scroll-behavior: smooth; }
+    html body.fettler { background: var(--page); color: var(--ink); font-family: 'Geist', ui-sans-serif, system-ui, sans-serif; }
+    /* A component with a client script is wrapped in a scope div, which would
+       otherwise become the box a sticky header is trapped in. */
+    body.fettler > div[data-stx-scope] { display: contents; }
+
+    .fettler .num { font-variant-numeric: tabular-nums; }
+
+    /* Radius: controls are 8px, containers are 12px. That is the whole system. */
+    .fettler .btn { display: inline-flex; align-items: center; justify-content: center; gap: .5rem; white-space: nowrap; border-radius: 8px; padding: .7rem 1.1rem; font-weight: 600; font-size: .9375rem; line-height: 1.25rem; transition: transform .2s cubic-bezier(.16, 1, .3, 1), background-color .2s, border-color .2s; }
+    .fettler .btn:active { transform: translateY(1px) scale(.98); }
+    .fettler .btn-primary { background: var(--accent); color: var(--on-accent); }
+    .fettler .btn-primary:hover { background: #ec6b45; }
+    .fettler .btn-ghost { border: 1px solid var(--line); color: var(--ink); background: var(--surface); }
+    .fettler .btn-ghost:hover { border-color: var(--muted); }
+    .fettler .btn-off { border: 1px dashed var(--line); color: var(--muted); cursor: default; }
+    .fettler .btn-off:active { transform: none; }
+    .fettler a:focus-visible, .fettler summary:focus-visible, .fettler button:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; border-radius: 8px; }
+
+    .fettler .link { color: var(--accent-ink); text-decoration: underline; text-underline-offset: 4px; text-decoration-thickness: 1px; }
+    .fettler .link:hover { text-decoration-thickness: 2px; }
+
+    .fettler .site-nav { background: color-mix(in srgb, var(--page) 84%, transparent); backdrop-filter: blur(14px) saturate(160%); -webkit-backdrop-filter: blur(14px) saturate(160%); }
+    @media (prefers-reduced-transparency: reduce) { .fettler .site-nav { background: var(--page); backdrop-filter: none; -webkit-backdrop-filter: none; } }
+
+    /* Code. Keywords take the accent; three quiet hues do the rest. */
+    .fettler .code { font-family: 'Geist Mono', ui-monospace, SFMono-Regular, monospace; font-size: .8125rem; line-height: 1.6rem; }
+    .fettler .tk-k { color: var(--accent-ink); }
+    .fettler .tk-f { color: var(--ink); font-weight: 500; }
+    .fettler .tk-s { color: var(--syn-string); }
+    .fettler .tk-t { color: var(--syn-type); }
+    .fettler .tk-c { color: var(--syn-comment); }
+    .fettler .tk-p { color: var(--ink); }
+
+    .fettler details > summary { list-style: none; cursor: pointer; }
+    .fettler details > summary::-webkit-details-marker { display: none; }
+    .fettler details > summary > .faq-mark { transition: transform .25s cubic-bezier(.16, 1, .3, 1); }
+    .fettler details[open] > summary > .faq-mark { transform: rotate(45deg); }
+
+    /* Long-form pages: the changelog body and the legal pages. */
+    .fettler .prose { max-width: 65ch; color: var(--muted); line-height: 1.7; }
+    .fettler .prose h2 { margin-top: 2rem; color: var(--ink); font-weight: 600; font-size: 1.125rem; letter-spacing: -0.01em; }
+    .fettler .prose p { margin-top: .85rem; }
+    .fettler .prose ul { margin-top: .85rem; padding-left: 1.1rem; list-style: disc; }
+    .fettler .prose li { margin-top: .4rem; }
+    .fettler .prose li::marker { color: var(--line); }
+    .fettler .prose code { font-family: 'Geist Mono', ui-monospace, monospace; font-size: .875em; color: var(--ink); background: var(--tint); border-radius: 4px; padding: .1em .35em; }
+    .fettler .prose a { color: var(--accent-ink); text-decoration: underline; text-underline-offset: 4px; }
+
+    /*
+     * Motion, all of it CSS on transform and opacity. A page arrives in
+     * reading order, and a section rises once as it scrolls into view. Both
+     * exist only for people who have not asked for less motion.
+     */
+    @media (prefers-reduced-motion: reduce) { html { scroll-behavior: auto; } }
+    @media (prefers-reduced-motion: no-preference) {
+      .fettler .rise { animation: f-rise .7s cubic-bezier(.16, 1, .3, 1) both; animation-delay: calc(var(--i, 0) * 80ms); }
+      @keyframes f-rise { from { opacity: 0; transform: translateY(14px); } to { opacity: 1; transform: none; } }
+
+      @supports (animation-timeline: view()) {
+        .fettler .reveal { animation: f-rise linear both; animation-timeline: view(); animation-range: entry 0% cover 22%; }
+      }
+    }
+  </style>
+</head>
+<body class="min-h-[100dvh] antialiased fettler">
+  <a href="#main" class="focus:fixed focus:left-3 focus:top-3 focus:px-4 focus:py-2 focus:text-ink focus:bg-surface focus:border focus:border-line focus:rounded-lg sr-only focus:not-sr-only" style="z-index: 30">Skip to content</a>
+  <SiteNav path="{{ navPath }}" />
+  <main id="main" tabindex="-1">
+    @yield('content')
+  </main>
+  <SiteFooter />
+  @stack('scripts')
+</body>
+</html>

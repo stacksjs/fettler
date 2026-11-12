@@ -1,0 +1,45 @@
+@extends('layouts/default')
+@section('content')
+<script server>
+import { downloadFaqs } from '~/resources/data/faqs'
+import { release, released } from '~/resources/data/site'
+
+const canonicalPath = '/download'
+const pageTitle = 'Download - Fettler'
+const pageDescription = 'Fettler is in development. There is no download yet; the first beta will be for macOS, Windows and Linux.'
+
+const platforms = release.platforms.map(platform => ({ ...platform, ready: platform.url !== '' }))
+const isReleased = released
+</script>
+<section class="mx-auto pb-10 pt-12 px-4 md:pt-20 md:px-8 max-w-6xl">
+  @if(isReleased)
+    <h1 class="max-w-[16ch] font-semibold leading-[1.05] text-4xl text-ink tracking-tighter md:text-5xl rise" style="--i: 0">Download the Fettler beta.</h1>
+    <p class="mt-5 max-w-[58ch] leading-relaxed text-lg text-muted rise" style="--i: 1">A 0.x beta. Free for local projects and the sandbox.</p>
+  @else
+    <h1 class="max-w-[16ch] font-semibold leading-[1.05] text-4xl text-ink tracking-tighter md:text-5xl rise" style="--i: 0">There is nothing to download yet.</h1>
+    <p class="mt-5 max-w-[58ch] leading-relaxed text-lg text-muted rise" style="--i: 1">Fettler is in development. The first public build will be a 0.x beta for all three platforms, and this page will carry it.</p>
+  @endif
+  <div class="mt-8 rise" style="--i: 2">
+    <DownloadButton variant="status" />
+  </div>
+</section>
+
+<section class="mx-auto px-4 md:px-8 max-w-6xl" aria-label="Platforms">
+  <ul class="grid overflow-hidden gap-px grid-cols-1 md:grid-cols-3 bg-line border border-line rounded-xl reveal">
+    @foreach(platforms as platform)
+      <li class="flex flex-col p-6 md:p-8 bg-surface">
+        <span class="size-7 text-ink {{ platform.icon }}" aria-hidden="true"></span>
+        <h2 class="mt-5 font-semibold text-ink text-xl tracking-tight">{{ platform.name }}</h2>
+        @if(platform.ready)
+          <a href="{{ platform.url }}" class="mt-5 btn btn-ghost">Download for {{ platform.name }}</a>
+        @else
+          <p class="mt-2 text-muted">Beta in development</p>
+        @endif
+      </li>
+    @endforeach
+  </ul>
+  <p class="mt-6 max-w-[62ch] leading-relaxed text-muted reveal">The <a href="/changelog" class="link">changelog</a> records what exists today and will announce the first build.</p>
+</section>
+
+<Faq :items="downloadFaqs" heading="About the beta" />
+@endsection

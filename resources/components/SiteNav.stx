@@ -1,0 +1,63 @@
+<script server>
+import { navLinks, site } from '~/resources/data/site'
+
+const props = defineProps<{ path?: string }>()
+const here = props.path ?? '/'
+const links = navLinks.map(link => ({ ...link, current: link.href === here }))
+</script>
+<script client>
+const menuOpen = state(false)
+function toggleMenu() { menuOpen.update(open => !open) }
+</script>
+<header class="sticky top-0 border-b border-line site-nav" style="z-index: 20">
+  <nav class="flex gap-6 items-center justify-between mx-auto px-4 md:px-8 h-16 max-w-6xl" aria-label="Main">
+    <a href="/" class="flex gap-2 items-center font-semibold text-ink text-lg tracking-tight">
+      <span class="size-5 text-accent-ink i-hugeicons-anvil" aria-hidden="true"></span>
+      {{ site.name }}
+    </a>
+
+    <div class="hidden md:flex gap-7 items-center text-sm">
+      @foreach(links as link)
+        @if(link.current)
+          <a href="{{ link.href }}" class="font-medium text-ink" aria-current="page">{{ link.label }}</a>
+        @else
+          <a href="{{ link.href }}" class="text-muted hover:text-ink transition-colors">{{ link.label }}</a>
+        @endif
+      @endforeach
+    </div>
+
+    <div class="flex gap-2 items-center">
+      <a href="/download" class="btn btn-primary nav-cta">Download</a>
+      <button type="button" class="inline-flex md:hidden items-center justify-center size-10 text-ink border border-line rounded-lg menu-button" aria-label="Menu" aria-controls="site-menu" :aria-expanded="menuOpen() ? 'true' : 'false'" aria-expanded="false" @click="toggleMenu()">
+        <span class="size-5 i-hugeicons-menu-01 menu-open" aria-hidden="true"></span>
+        <span class="size-5 i-hugeicons-cancel-01 menu-close" aria-hidden="true"></span>
+      </button>
+    </div>
+  </nav>
+
+  {{-- No binding on this element: it holds a server loop, and a binding would
+       hand the whole subtree to the client. The style block below opens it
+       from the button's own aria-expanded. --}}
+  <div id="site-menu" class="md:hidden pb-5 pt-2 px-4 bg-page border-line border-t site-menu">
+    <div class="flex flex-col">
+      @foreach(links as link)
+        @if(link.current)
+          <a href="{{ link.href }}" class="py-3 font-medium text-base text-ink" aria-current="page">{{ link.label }}</a>
+        @else
+          <a href="{{ link.href }}" class="py-3 text-base text-muted">{{ link.label }}</a>
+        @endif
+      @endforeach
+    </div>
+  </div>
+</header>
+
+<style>
+  .fettler .site-nav .nav-cta { padding: .5rem .9rem; font-size: .875rem; }
+  .fettler .site-nav .site-menu { display: none; }
+  .fettler .site-nav .menu-button > .menu-close { display: none; }
+  @media (max-width: 767.98px) {
+    .fettler .site-nav:has(.menu-button[aria-expanded='true']) .site-menu { display: block; }
+    .fettler .site-nav .menu-button[aria-expanded='true'] > .menu-open { display: none; }
+    .fettler .site-nav .menu-button[aria-expanded='true'] > .menu-close { display: inline-block; }
+  }
+</style>

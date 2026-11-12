@@ -1,0 +1,26 @@
+@extends('layouts/default')
+@section('content')
+<script server>
+import { changelogEntries } from '~/resources/data/changelog'
+
+const canonicalPath = '/changelog'
+const pageTitle = 'Changelog - Fettler'
+const pageDescription = 'What has shipped in Fettler, one entry per release, and what exists before the first beta.'
+
+const entries = changelogEntries()
+</script>
+<section class="mx-auto pb-10 pt-12 px-4 md:pt-20 md:px-8 max-w-4xl">
+  <h1 class="font-semibold leading-[1.05] text-4xl text-ink tracking-tighter md:text-5xl rise" style="--i: 0">Changelog</h1>
+  <p class="mt-5 max-w-[58ch] leading-relaxed text-lg text-muted rise" style="--i: 1">One entry per release, newest first. Before the first beta, it records what exists and what does not.</p>
+</section>
+
+<section class="mx-auto px-4 md:px-8 max-w-4xl">
+  @if(entries.length === 0)
+    <p class="py-10 text-muted border-line border-t">No entries yet.</p>
+  @else
+    @foreach(entries as entry)
+      <ChangelogEntry :entry="entry" />
+    @endforeach
+  @endif
+</section>
+@endsection

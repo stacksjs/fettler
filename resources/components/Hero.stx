@@ -1,0 +1,106 @@
+<script server>
+import { query, result, snippet } from '~/resources/data/demo'
+
+// The editor and the result below are drawn from resources/data/demo.ts: a
+// snippet, the typed card it returns and the query it ran. It is the app's
+// result view rendered from a fixture, and the caption under it says so.
+const lines = snippet.map((tokens, index) => ({ number: index + 1, tokens }))
+</script>
+<script client>
+// Pressing Run replays the order a real run fills in: the value, then the
+// query behind it. Someone who asked for less motion gets no replay.
+const reduceMotion = usePreferredReducedMotion()
+const run = state('idle')
+
+function runSnippet() {
+  if (reduceMotion()) {
+    run.set('still')
+    return
+  }
+  run.update(current => (current === 'a' ? 'b' : 'a'))
+}
+</script>
+<section class="mx-auto pb-16 pt-10 px-4 md:pt-16 md:px-8 lg:pb-24 lg:pt-20 max-w-6xl">
+  <div class="grid gap-12 grid-cols-1 items-center lg:gap-14 lg:grid-cols-[5fr_6fr]">
+    <div>
+      <p class="flex gap-2 items-center font-medium text-accent-ink text-sm rise" style="--i: 0">
+        <span class="size-4 i-hugeicons-wrench-01" aria-hidden="true"></span>
+        In development. No download yet.
+      </p>
+      <h1 class="mt-5 font-semibold leading-[1.04] text-4xl text-ink tracking-tighter md:text-5xl xl:text-6xl hero-title rise" style="--i: 1">Tinker with your real Stacks app.</h1>
+      <p class="mt-6 max-w-[46ch] leading-relaxed text-lg text-muted rise" style="--i: 2">A desktop app that runs TypeScript against your models, actions, jobs and config, local or remote, with typed results.</p>
+      <div class="flex flex-wrap gap-3 items-center mt-8 rise" style="--i: 3">
+        <DownloadButton />
+        <a href="/features" class="btn btn-ghost">See the features</a>
+      </div>
+    </div>
+
+    <figure class="min-w-0 demo rise" style="--i: 2">
+      <div class="overflow-hidden bg-surface border border-line rounded-xl demo-window">
+        <div class="flex gap-3 items-center justify-between px-4 h-12 border-b border-line">
+          <p class="flex gap-2 items-center min-w-0 text-muted text-sm">
+            <span class="shrink-0 size-4 i-hugeicons-laptop" aria-hidden="true"></span>
+            <span class="truncate">Local project</span>
+          </p>
+          <button type="button" class="btn btn-ghost run-button" :data-run="run()" data-run="idle" @click="runSnippet()">
+            <span class="size-4 text-accent-ink i-hugeicons-play" aria-hidden="true"></span>
+            Run
+          </button>
+        </div>
+
+        <div class="overflow-x-auto px-4 py-4 code" role="img" aria-label="A TypeScript snippet that finds the newest user with an example.com email address">
+          @foreach(lines as line)
+            <div class="flex gap-4 whitespace-pre"><span class="shrink-0 w-4 text-right select-none num tk-c">{{ line.number }}</span><span>@foreach(line.tokens as token)<span class="tk-{{ token.kind }}">{{ token.text }}</span>@endforeach</span></div>
+          @endforeach
+        </div>
+
+        <div class="px-4 py-4 bg-tint border-line border-t">
+          <div class="bg-surface border border-line rounded-xl demo-step" style="--step: 0">
+            <div class="flex gap-3 items-center justify-between px-4 py-2.5 border-b border-line">
+              <p class="flex gap-2 items-center font-medium text-ink text-sm">
+                <span class="size-4 text-accent-ink i-hugeicons-dashboard-square-01" aria-hidden="true"></span>
+                {{ result.model }}
+              </p>
+              <p class="text-muted text-xs code">{{ result.table }}</p>
+            </div>
+            <dl class="px-4 py-2 code">
+              @foreach(result.fields as field)
+                <div class="flex gap-3 items-baseline justify-between">
+                  <dt class="shrink-0 text-ink">{{ field.name }}<span class="hidden sm:inline tk-c">: {{ field.type }}</span></dt>
+                  @if(field.string)
+                    <dd class="min-w-0 truncate tk-s">'{{ field.value }}'</dd>
+                  @else
+                    <dd class="min-w-0 text-ink truncate num">{{ field.value }}</dd>
+                  @endif
+                </div>
+              @endforeach
+            </dl>
+          </div>
+
+          <div class="flex gap-3 items-start mt-3 demo-step" style="--step: 1">
+            <span class="shrink-0 mt-1 size-4 text-muted i-hugeicons-database-01" aria-hidden="true"></span>
+            <div class="min-w-0">
+              <p class="break-words text-ink text-xs code">{{ query.sql }}</p>
+              <p class="mt-1 text-muted text-xs num">{{ query.rows }} row, {{ query.duration }}</p>
+            </div>
+          </div>
+        </div>
+      </div>
+      <figcaption class="mt-3 text-muted text-sm">Drawn from example data, not a screenshot. The app is still being built.</figcaption>
+    </figure>
+  </div>
+</section>
+
+<style>
+  .fettler .hero-title { text-wrap: balance; }
+  .fettler .demo .demo-window { box-shadow: var(--shadow); }
+  .fettler .demo .run-button { padding: .35rem .7rem; font-size: .8125rem; }
+
+  /* Two identical animations, so switching the name restarts it on each run. */
+  @media (prefers-reduced-motion: no-preference) {
+    .fettler .demo:has(.run-button[data-run='a']) .demo-step { animation: demo-run-a .5s cubic-bezier(.16, 1, .3, 1) both; animation-delay: calc(120ms + var(--step) * 260ms); }
+    .fettler .demo:has(.run-button[data-run='b']) .demo-step { animation: demo-run-b .5s cubic-bezier(.16, 1, .3, 1) both; animation-delay: calc(120ms + var(--step) * 260ms); }
+    @keyframes demo-run-a { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: none; } }
+    @keyframes demo-run-b { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: none; } }
+  }
+</style>

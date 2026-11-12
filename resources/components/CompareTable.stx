@@ -1,0 +1,53 @@
+<script server>
+import { checkedLabel, compareGroups } from '~/resources/data/compare'
+</script>
+<div class="compare">
+  @foreach(compareGroups as group)
+    <section class="mt-12 reveal">
+      <h2 class="font-semibold text-ink text-xl tracking-tight">{{ group.title }}</h2>
+      <table class="mt-4 w-full text-left border-line border-t">
+        <thead>
+          <tr class="text-muted text-sm">
+            <th scope="col" class="pr-4 py-3 w-[18%] font-medium">Topic</th>
+            <th scope="col" class="pr-4 py-3 w-[33%] font-medium">Fettler</th>
+            <th scope="col" class="pr-4 py-3 w-[33%] font-medium">Tinkerwell</th>
+            <th scope="col" class="py-3 font-medium">Source</th>
+          </tr>
+        </thead>
+        <tbody>
+          @foreach(group.rows as row)
+            <tr class="border-line border-t align-top">
+              <th scope="row" class="pr-4 py-4 font-medium text-ink">
+                {{ row.topic }}
+                @if(row.ahead)
+                  <span class="block mt-1 font-medium text-accent-ink text-sm">{{ row.edgeLabel }}</span>
+                @else
+                  <span class="block mt-1 font-normal text-muted text-sm">{{ row.edgeLabel }}</span>
+                @endif
+              </th>
+              <td class="pr-4 py-4 leading-relaxed text-ink" data-label="Fettler">{{ row.fettler }}</td>
+              <td class="pr-4 py-4 leading-relaxed text-ink" data-label="Tinkerwell">{{ row.tinkerwell }}</td>
+              <td class="py-4 text-sm" data-label="Source">
+                <a href="{{ row.source }}" class="link" rel="noopener nofollow">tinkerwell.app<span class="sr-only">, the page for {{ row.topic }}</span></a>
+              </td>
+            </tr>
+          @endforeach
+        </tbody>
+      </table>
+    </section>
+  @endforeach
+  <p class="mt-8 max-w-[70ch] leading-relaxed text-muted text-sm">Everything in the Tinkerwell column was read from its public site and docs on {{ checkedLabel }}, and each row links the page it came from. Tinkerwell is a product of Beyond Code. Fettler is not affiliated with it.</p>
+</div>
+
+<style>
+  /* Below md a four-column table does not fit, so each row becomes a block
+     and each cell names its own column. */
+  @media (max-width: 767.98px) {
+    .fettler .compare thead { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); }
+    .fettler .compare tr, .fettler .compare th, .fettler .compare td { display: block; width: auto; }
+    .fettler .compare tbody tr { padding: 1rem 0; }
+    .fettler .compare tbody th, .fettler .compare tbody td { padding: 0; }
+    .fettler .compare tbody td { margin-top: .75rem; }
+    .fettler .compare tbody td::before { content: attr(data-label); display: block; color: var(--muted); font-size: .8125rem; }
+  }
+</style>

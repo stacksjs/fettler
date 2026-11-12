@@ -1,0 +1,77 @@
+<script server>
+import { release, released } from '~/resources/data/site'
+
+/**
+ * The download button. It reads the visitor's operating system in the browser
+ * and names it. While there is no build (resources/data/site.ts has no URLs)
+ * it says so and leads to the download page; once a platform has a URL the
+ * same button downloads that platform's build.
+ *
+ * `variant="status"` is the download page's own copy: with no build it is a
+ * plain statement, not a link back to the page it sits on.
+ */
+const props = defineProps<{ variant?: 'button' | 'status' }>()
+const asStatus = props.variant === 'status'
+
+const mac = release.platforms.find(platform => platform.id === 'macos')!
+const windows = release.platforms.find(platform => platform.id === 'windows')!
+const linux = release.platforms.find(platform => platform.id === 'linux')!
+</script>
+<script client>
+// '' until the browser has been read, and for phones and anything unknown.
+const os = state('')
+
+onMount(() => {
+  const agent = navigator.userAgent
+  if (/Android|iPhone|iPad|iPod/i.test(agent))
+    return
+  if (/Windows/i.test(agent))
+    os.set('windows')
+  else if (/Macintosh|Mac OS X/i.test(agent))
+    os.set('macos')
+  else if (/Linux|X11/i.test(agent))
+    os.set('linux')
+})
+</script>
+@if(released)
+  <span class="inline-flex download-button">
+    <a href="/download" class="btn btn-primary" :hidden="os() !== ''">
+      <span class="size-5 i-hugeicons-download-04" aria-hidden="true"></span>
+      Download the beta
+    </a>
+    <a href="{{ mac.url || '/download' }}" class="btn btn-primary" :hidden="os() !== 'macos'" hidden>
+      <span class="size-5 i-hugeicons-apple" aria-hidden="true"></span>
+      Download for macOS
+    </a>
+    <a href="{{ windows.url || '/download' }}" class="btn btn-primary" :hidden="os() !== 'windows'" hidden>
+      <span class="size-5 i-hugeicons-windows-new" aria-hidden="true"></span>
+      Download for Windows
+    </a>
+    <a href="{{ linux.url || '/download' }}" class="btn btn-primary" :hidden="os() !== 'linux'" hidden>
+      <span class="size-5 i-hugeicons-computer-terminal-02" aria-hidden="true"></span>
+      Download for Linux
+    </a>
+  </span>
+@elseif(asStatus)
+  <p class="btn btn-off download-button">
+    <span class="size-5 i-hugeicons-download-04" aria-hidden="true"></span>
+    <span>
+      Not available for
+      <span :hidden="os() !== ''">any platform</span><span :hidden="os() !== 'macos'" hidden>macOS</span><span :hidden="os() !== 'windows'" hidden>Windows</span><span :hidden="os() !== 'linux'" hidden>Linux</span>
+      yet
+    </span>
+  </p>
+@else
+  <a href="/download" class="btn btn-primary download-button">
+    <span class="size-5 i-hugeicons-download-04" aria-hidden="true"></span>
+    <span>
+      Coming to
+      <span :hidden="os() !== ''">desktop</span><span :hidden="os() !== 'macos'" hidden>macOS</span><span :hidden="os() !== 'windows'" hidden>Windows</span><span :hidden="os() !== 'linux'" hidden>Linux</span>
+    </span>
+  </a>
+@endif
+
+<style>
+  /* A utility's display would otherwise beat the hidden attribute. */
+  .fettler .download-button [hidden] { display: none !important; }
+</style>

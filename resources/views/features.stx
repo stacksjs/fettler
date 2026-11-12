@@ -1,0 +1,83 @@
+@extends('layouts/default')
+@section('content')
+<script server>
+import { editor, more } from '~/resources/data/features'
+
+const canonicalPath = '/features'
+const pageTitle = 'Features - Fettler'
+const pageDescription = 'What Fettler does: typed result cards, table mode, a SQL panel, relation graphs, HTML preview, remote targets, language-server completion and more. In development.'
+</script>
+<section class="mx-auto pb-6 pt-12 px-4 md:pt-20 md:px-8 max-w-6xl">
+  <h1 class="max-w-[18ch] font-semibold leading-[1.05] text-4xl text-ink tracking-tighter md:text-5xl rise" style="--i: 0">Everything Fettler is being built to do.</h1>
+  <p class="mt-5 max-w-[60ch] leading-relaxed text-lg text-muted rise" style="--i: 1">This page describes the 0.x beta in progress. None of it can be downloaded yet, and the <a href="/changelog" class="link">changelog</a> says what exists today.</p>
+</section>
+
+<section class="mx-auto px-4 py-12 md:px-8 md:py-16 max-w-6xl">
+  <h2 class="font-semibold text-2xl text-ink tracking-tight md:text-3xl reveal">Results</h2>
+  <p class="mb-8 mt-3 max-w-[56ch] leading-relaxed text-muted reveal">Five ways to look at what a snippet returned.</p>
+  <ResultViews />
+</section>
+
+<section class="mx-auto px-4 py-12 md:px-8 md:py-16 max-w-6xl">
+  <h2 class="font-semibold text-2xl text-ink tracking-tight md:text-3xl reveal">Targets</h2>
+  <p class="mb-8 mt-3 max-w-[56ch] leading-relaxed text-muted reveal">Run on this machine for free, or on a remote target with Pro. Nothing is written on the remote server.</p>
+  <TargetList />
+</section>
+
+<section class="flex flex-col gap-16 md:gap-24 mx-auto px-4 py-12 md:px-8 md:py-16 max-w-6xl">
+  <FeatureRow title="{{ editor.completion.title }}" body="{{ editor.completion.body }}" icon="{{ editor.completion.icon }}">
+    <div class="p-5 bg-surface border border-line rounded-xl code" aria-hidden="true">
+      <p><span class="tk-k">const</span> user = <span class="tk-k">await</span> <span class="tk-t">User</span>.<span class="tk-f">find</span>(4812)</p>
+      <p>user.<span class="text-accent-ink">em</span></p>
+      <ul class="overflow-hidden ml-10 mt-1 w-56 bg-page border border-line rounded-lg">
+        <li class="flex justify-between px-3 bg-accent-soft"><span class="text-ink">email</span><span class="tk-c">string</span></li>
+        <li class="flex justify-between px-3"><span class="text-ink">email_verified_at</span><span class="tk-c">Date</span></li>
+      </ul>
+    </div>
+  </FeatureRow>
+
+  <FeatureRow title="{{ editor.magic.title }}" body="{{ editor.magic.body }}" icon="{{ editor.magic.icon }}" flip>
+    <div class="p-5 bg-surface border border-line rounded-xl code" aria-hidden="true">
+      <p><span class="tk-k">const</span> posts = <span class="tk-k">await</span> user.<span class="tk-f">posts</span>()</p>
+      <p class="flex flex-wrap gap-x-3 items-center">
+        <span>posts.length</span>
+        <span class="px-2 text-accent-ink bg-accent-soft rounded-lg num">14</span>
+      </p>
+      <p class="flex flex-wrap gap-x-3 items-center">
+        <span>posts[0].title</span>
+        <span class="px-2 text-accent-ink bg-accent-soft rounded-lg">'Notes on fettling'</span>
+      </p>
+    </div>
+  </FeatureRow>
+</section>
+
+<section class="mx-auto px-4 py-12 md:px-8 md:py-16 max-w-6xl">
+  <h2 class="font-semibold text-2xl text-ink tracking-tight md:text-3xl reveal">And the rest</h2>
+  <dl class="grid gap-x-12 gap-y-8 grid-cols-1 sm:grid-cols-2 mt-8">
+    @foreach(more as feature)
+      <div class="flex gap-4 items-start reveal">
+        <span class="shrink-0 mt-0.5 size-5 text-accent-ink {{ feature.icon }}" aria-hidden="true"></span>
+        <div>
+          <dt class="font-semibold text-ink">
+            {{ feature.title }}
+            @if(feature.pro)
+              <span class="ml-1 font-medium text-accent-ink text-sm">Pro</span>
+            @endif
+          </dt>
+          <dd class="mt-1 leading-relaxed text-muted">{{ feature.body }}</dd>
+        </div>
+      </div>
+    @endforeach
+  </dl>
+</section>
+
+<section class="mx-auto px-4 md:px-8 max-w-6xl">
+  <div class="py-14 md:py-20 border-line border-t reveal">
+    <h2 class="max-w-[20ch] font-semibold leading-tight text-3xl text-ink tracking-tight">Coming from PHP? See how it compares.</h2>
+    <div class="flex flex-wrap gap-3 items-center mt-8">
+      <a href="/compare" class="btn btn-ghost">Fettler and Tinkerwell</a>
+      <a href="/pricing" class="btn btn-ghost">See pricing</a>
+    </div>
+  </div>
+</section>
+@endsection

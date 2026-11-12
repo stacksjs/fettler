@@ -1,0 +1,36 @@
+@extends('layouts/default')
+@section('content')
+<script server>
+const canonicalPath = '/privacy'
+const pageTitle = 'Privacy - Fettler'
+const pageDescription = 'What this site and the Fettler app do with your data, as of the pre-release site.'
+const updated = 'November 11, 2026'
+</script>
+<article class="mx-auto pb-8 pt-12 px-4 md:pt-20 md:px-8 max-w-3xl">
+  <h1 class="font-semibold leading-[1.05] text-4xl text-ink tracking-tighter md:text-5xl">Privacy</h1>
+  <p class="mt-5 text-muted">Last updated {{ updated }}.</p>
+  <div class="prose">
+    <p>Fettler is in development. This page describes what is true today and names what will be added before the first beta and before checkout opens. It will be rewritten as each of those happens.</p>
+
+    <h2>This site, today</h2>
+    <ul>
+      <li>There are no accounts, no forms and no checkout on this site, so it does not ask you for any personal information.</li>
+      <li>The pages load their fonts and styles from this site. They do not load analytics scripts, advertising or third-party embeds.</li>
+      <li>Links to other sites, such as the source links on the comparison page, take you to those sites and their own policies.</li>
+    </ul>
+
+    <h2>The app</h2>
+    <ul>
+      <li>There is no released app yet, so there is nothing collecting data from one.</li>
+      <li>Fettler runs your code against your own app, on your machine or on a target you connect it to. Running a snippet on a remote target writes nothing on that server.</li>
+      <li>AI features use an API key that you bring from your own provider. What you send to that provider is covered by your agreement with them.</li>
+    </ul>
+
+    <h2>What will change</h2>
+    <ul>
+      <li>When checkout opens, buying a license will involve a payment provider and an email address for the license. This page will name the provider and say what is kept before that day.</li>
+      <li>When the beta ships, this page will say what the app sends, if anything, for license checks, updates and crash reports.</li>
+    </ul>
+  </div>
+</article>
+@endsection

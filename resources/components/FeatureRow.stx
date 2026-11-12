@@ -1,0 +1,26 @@
+<script server>
+/**
+ * One feature beside the thing that shows it. The visual is the slot; `flip`
+ * puts it on the left from the md breakpoint up. Below md the text is always
+ * first and the visual follows.
+ */
+const props = defineProps<{ title: string, body: string, icon: string, flip?: boolean, pro?: boolean }>()
+const title = props.title
+const body = props.body
+const icon = props.icon
+const flip = props.flip === true
+const pro = props.pro === true
+</script>
+<div class="grid gap-8 grid-cols-1 items-center md:gap-14 md:grid-cols-2 reveal">
+  <div class="{{ flip ? 'md:order-2' : '' }}">
+    <span class="size-6 text-accent-ink {{ icon }}" aria-hidden="true"></span>
+    <h3 class="mt-4 max-w-[22ch] font-semibold leading-tight text-2xl text-ink tracking-tight">{{ title }}</h3>
+    <p class="mt-3 max-w-[48ch] leading-relaxed text-muted">{{ body }}</p>
+    @if(pro)
+      <p class="mt-4 font-medium text-accent-ink text-sm">Part of Pro</p>
+    @endif
+  </div>
+  <div class="min-w-0 {{ flip ? 'md:order-1' : '' }}">
+    <slot />
+  </div>
+</div>

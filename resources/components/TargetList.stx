@@ -1,0 +1,19 @@
+<script server>
+import { targets } from '~/resources/data/features'
+
+const rows = targets.map(target => ({ ...target, tier: target.pro ? 'Pro' : 'Free' }))
+</script>
+<ul class="grid overflow-hidden gap-px grid-cols-2 md:grid-cols-3 lg:grid-cols-6 bg-line border border-line rounded-xl reveal">
+  @foreach(rows as target)
+    <li class="flex flex-col p-5 bg-surface">
+      <span class="size-6 text-ink {{ target.icon }}" aria-hidden="true"></span>
+      <p class="mt-4 font-semibold text-ink">{{ target.name }}</p>
+      <p class="grow mt-1 leading-snug text-muted text-sm">{{ target.detail }}</p>
+      @if(target.pro)
+        <p class="mt-4 font-medium text-accent-ink text-sm">{{ target.tier }}</p>
+      @else
+        <p class="mt-4 font-medium text-muted text-sm">{{ target.tier }}</p>
+      @endif
+    </li>
+  @endforeach
+</ul>

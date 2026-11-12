@@ -1,0 +1,21 @@
+<script server>
+import type { ChangelogEntry } from '~/resources/data/changelog'
+
+const props = defineProps<{ entry: ChangelogEntry }>()
+const entry = props.entry
+</script>
+<article id="{{ entry.slug }}" class="grid gap-4 grid-cols-1 md:gap-10 md:grid-cols-[11rem_1fr] py-10 border-line border-t">
+  <div>
+    <time datetime="{{ entry.date }}" class="text-muted text-sm num">{{ entry.dateLabel }}</time>
+    @if(entry.version)
+      <p class="mt-1 font-medium text-ink text-sm code">{{ entry.version }} beta</p>
+    @endif
+    @if(entry.status)
+      <p class="mt-1 font-medium text-accent-ink text-sm">{{ entry.status }}</p>
+    @endif
+  </div>
+  <div class="min-w-0">
+    <h2 class="font-semibold text-2xl text-ink tracking-tight">{{ entry.title }}</h2>
+    <div class="prose">{!! entry.html !!}</div>
+  </div>
+</article>

@@ -1,65 +1,73 @@
+@extends('layouts/default')
+@section('content')
 <script server>
-/**
- * The starter page `buddy new` gives every app, at `/`.
- *
- * Everything that names the site comes from the app's own config: the title
- * from APP_NAME and the canonical URL from APP_URL (via config/app.ts), so a
- * deploy of an untouched app describes itself rather than anyone else.
- * Replace this file with your own homepage.
- */
-import { config } from '@stacksjs/config'
+import { formatCents, planById } from '~/app/Billing/plans'
+import { homeFaqs } from '~/resources/data/faqs'
 
-const appName = config.app.name || 'My App'
+const canonicalPath = '/'
 
-// APP_URL is often a bare host (`my-app.localhost`), which is not a valid
-// canonical href on its own.
-const rawUrl = String(config.app.url || '').replace(/\/+$/, '')
-const siteUrl = rawUrl && !/^https?:\/\//.test(rawUrl) ? `https://${rawUrl}` : rawUrl
-const canonicalUrl = siteUrl ? `${siteUrl}/` : ''
+const standardPrice = formatCents(planById('standard')!.priceCents)
+const lifetimePrice = formatCents(planById('lifetime')!.priceCents)
 
-const pageDescription = `${appName} is up and running.`
-
-const nextSteps = [
-  { icon: 'i-hugeicons-file-edit', title: 'Edit this page', path: 'resources/views/index.stx' },
-  { icon: 'i-hugeicons-database-01', title: 'Define a model', path: 'app/Models' },
-  { icon: 'i-hugeicons-route-01', title: 'Add an API route', path: 'routes/api.ts' },
-  { icon: 'i-hugeicons-settings-02', title: 'Configure the app', path: 'config/app.ts' },
+const facts = [
+  { icon: 'i-hugeicons-layers-01', title: 'The app, booted', body: 'A snippet runs inside your Stacks app, with its models, actions, jobs, config and queries in reach.' },
+  { icon: 'i-hugeicons-refresh', title: 'State remains between runs', body: 'What you set in one run is still there in the next. You do not start over each time.' },
+  { icon: 'i-hugeicons-shield-01', title: 'Nothing written on the server', body: 'Running against a remote target leaves no file behind on it.' },
 ]
 </script>
+<Hero />
 
-@nolayout
-<!DOCTYPE html>
-<html lang="en">
-  <head>
-    <meta charset="utf-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>{{ appName }}</title>
-    <meta name="description" content="{{ pageDescription }}">
-    @if(canonicalUrl)
-      <link rel="canonical" href="{{ canonicalUrl }}">
-    @endif
-  </head>
-  <body class="min-h-screen antialiased text-neutral-900 dark:text-neutral-100 bg-neutral-50 dark:bg-neutral-950">
-    <main class="flex flex-col justify-center mx-auto px-6 py-16 max-w-2xl min-h-screen">
-      <p class="font-medium text-neutral-500 text-sm dark:text-neutral-400">Your app is running</p>
-      <h1 class="mt-2 font-semibold text-4xl tracking-tight">{{ appName }}</h1>
-      <p class="mt-4 text-neutral-600 dark:text-neutral-300">
-        Start with <code class="px-1.5 py-0.5 text-sm bg-neutral-200 dark:bg-neutral-800 rounded">./buddy dev</code>, then make it yours.
-      </p>
+<section class="mx-auto px-4 py-16 md:px-8 md:py-24 max-w-6xl">
+  <div class="grid gap-10 grid-cols-1 lg:gap-16 lg:grid-cols-[5fr_6fr]">
+    <h2 class="max-w-[16ch] font-semibold leading-tight text-3xl text-ink tracking-tight md:text-4xl reveal">It runs the app you run, not a copy of it.</h2>
+    <ul class="flex flex-col gap-8">
+      @foreach(facts as fact)
+        <li class="flex gap-4 items-start reveal">
+          <span class="shrink-0 mt-1 size-6 text-accent-ink {{ fact.icon }}" aria-hidden="true"></span>
+          <div>
+            <h3 class="font-semibold text-ink text-lg">{{ fact.title }}</h3>
+            <p class="mt-1 max-w-[52ch] leading-relaxed text-muted">{{ fact.body }}</p>
+          </div>
+        </li>
+      @endforeach
+    </ul>
+  </div>
+</section>
 
-      <ul class="mt-10 border-neutral-200 border-y divide-neutral-200 divide-y dark:border-neutral-800 dark:divide-neutral-800">
-        @foreach(nextSteps as step)
-          <li class="flex gap-4 items-center py-4">
-            <span class="{{ step.icon }} size-5 text-neutral-500 dark:text-neutral-400" aria-hidden="true"></span>
-            <span class="font-medium">{{ step.title }}</span>
-            <code class="ml-auto text-neutral-500 text-sm dark:text-neutral-400">{{ step.path }}</code>
-          </li>
-        @endforeach
-      </ul>
+<section class="mx-auto px-4 py-16 md:px-8 md:py-24 max-w-6xl">
+  <h2 class="max-w-[20ch] font-semibold leading-tight text-3xl text-ink tracking-tight md:text-4xl reveal">A result you can read, not a wall of text.</h2>
+  <p class="mb-10 mt-4 max-w-[56ch] leading-relaxed text-lg text-muted reveal">The same value can be a card, a table, the queries behind it, a graph of its relations or a rendered page.</p>
+  <ResultViews />
+</section>
 
-      <p class="mt-10 text-neutral-500 text-sm dark:text-neutral-400">
-        <a class="underline underline-offset-4 hover:text-neutral-900 dark:hover:text-neutral-100" href="https://stacksjs.com/docs">Read the Stacks docs</a>
-      </p>
-    </main>
-  </body>
-</html>
+<section class="mx-auto px-4 py-16 md:px-8 md:py-24 max-w-6xl">
+  <h2 class="max-w-[20ch] font-semibold leading-tight text-3xl text-ink tracking-tight md:text-4xl reveal">Your machine is free. Servers are Pro.</h2>
+  <p class="mb-10 mt-4 max-w-[56ch] leading-relaxed text-lg text-muted reveal">The same editor and the same results, wherever the app is running.</p>
+  <TargetList />
+</section>
+
+<section class="mx-auto px-4 py-8 md:px-8 max-w-6xl">
+  <div class="flex flex-col gap-6 md:flex-row md:items-center md:justify-between p-6 md:p-10 bg-tint rounded-xl reveal">
+    <div>
+      <h2 class="font-semibold text-2xl text-ink tracking-tight">Free for local work. Pro from {{ standardPrice }}.</h2>
+      <p class="mt-2 max-w-[56ch] leading-relaxed text-muted">Pro is {{ standardPrice }} with a year of updates, or {{ lifetimePrice }} for a lifetime license. Nothing is on sale until there is a beta to run.</p>
+    </div>
+    <a href="/pricing" class="shrink-0 btn btn-ghost">
+      See pricing
+      <span class="size-4 i-hugeicons-arrow-right-01" aria-hidden="true"></span>
+    </a>
+  </div>
+</section>
+
+<Faq :items="homeFaqs" heading="Before you ask" />
+
+<section class="mx-auto px-4 md:px-8 max-w-6xl">
+  <div class="py-14 md:py-20 border-line border-t reveal">
+    <h2 class="max-w-[18ch] font-semibold leading-tight text-3xl text-ink tracking-tight md:text-4xl">Not ready yet. The changelog will say when.</h2>
+    <div class="flex flex-wrap gap-3 items-center mt-8">
+      <DownloadButton />
+      <a href="/changelog" class="btn btn-ghost">Read the changelog</a>
+    </div>
+  </div>
+</section>
+@endsection

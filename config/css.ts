@@ -39,4 +39,30 @@ export default {
    * generated. Names only: patterns are not supported.
    */
   // safelist: ['i-hugeicons-note-01', 'i-hugeicons-folder-02'],
+
+  /*
+   * The site's tokens as utilities (`bg-page`, `text-muted`, `border-line`).
+   * The values live once, as custom properties in
+   * resources/views/layouts/default.stx, where light and dark are both set.
+   */
+  theme: {
+    extend: {
+      colors: {
+        'page': 'var(--page)',
+        'surface': 'var(--surface)',
+        'tint': 'var(--tint)',
+        'ink': 'var(--ink)',
+        'muted': 'var(--muted)',
+        'line': 'var(--line)',
+        'accent': 'var(--accent)',
+        'accent-ink': 'var(--accent-ink)',
+        'accent-soft': 'var(--accent-soft)',
+        'on-accent': 'var(--on-accent)',
+      },
+      fontFamily: {
+        sans: ['Geist', 'ui-sans-serif', 'system-ui', 'sans-serif'],
+        mono: ['Geist Mono', 'ui-monospace', 'SFMono-Regular', 'monospace'],
+      },
+    },
+  },
 } satisfies CssOptions

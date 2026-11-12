@@ -1,0 +1,82 @@
+<script server>
+import { query, result, tableRows } from '~/resources/data/demo'
+import { results } from '~/resources/data/features'
+
+// Five ways a result is shown, five tiles. Each small drawing is made from
+// the same example data as the hero.
+const cardFields = result.fields.slice(0, 3)
+</script>
+<div class="grid gap-4 grid-cols-1 md:grid-cols-6">
+  <article class="flex flex-col gap-6 md:col-span-4 md:flex-row md:items-center p-6 md:p-8 bg-surface border border-line rounded-xl reveal">
+    <div class="md:w-1/2">
+      <span class="size-6 text-accent-ink {{ results.cards.icon }}" aria-hidden="true"></span>
+      <h3 class="mt-4 font-semibold text-ink text-xl tracking-tight">{{ results.cards.title }}</h3>
+      <p class="mt-2 leading-relaxed text-muted">{{ results.cards.body }}</p>
+    </div>
+    <div class="min-w-0 md:w-1/2 bg-page border border-line rounded-xl" aria-hidden="true">
+      <p class="px-4 py-2.5 font-medium text-ink text-sm border-b border-line">{{ result.model }}</p>
+      <dl class="px-4 py-2 code">
+        @foreach(cardFields as field)
+          <div class="flex gap-3 items-baseline justify-between">
+            <dt class="shrink-0 text-ink">{{ field.name }}<span class="tk-c">: {{ field.type }}</span></dt>
+            @if(field.string)
+              <dd class="min-w-0 truncate tk-s">'{{ field.value }}'</dd>
+            @else
+              <dd class="min-w-0 text-ink truncate num">{{ field.value }}</dd>
+            @endif
+          </div>
+        @endforeach
+      </dl>
+    </div>
+  </article>
+
+  <article class="md:col-span-2 p-6 md:p-8 bg-tint rounded-xl reveal">
+    <span class="size-6 text-accent-ink {{ results.table.icon }}" aria-hidden="true"></span>
+    <h3 class="mt-4 font-semibold text-ink text-xl tracking-tight">{{ results.table.title }}</h3>
+    <p class="mt-2 leading-relaxed text-muted">{{ results.table.body }}</p>
+    <table class="mt-5 w-full text-left text-xs code" aria-hidden="true">
+      <thead>
+        <tr class="tk-c"><th class="font-normal">id</th><th class="font-normal">name</th><th class="font-normal">plan</th></tr>
+      </thead>
+      <tbody>
+        @foreach(tableRows as row)
+          <tr class="text-ink"><td class="num">{{ row.id }}</td><td>{{ row.name }}</td><td>{{ row.plan }}</td></tr>
+        @endforeach
+      </tbody>
+    </table>
+  </article>
+
+  <article class="md:col-span-2 p-6 md:p-8 bg-accent-soft rounded-xl reveal">
+    <span class="size-6 text-accent-ink {{ results.sql.icon }}" aria-hidden="true"></span>
+    <h3 class="mt-4 font-semibold text-ink text-xl tracking-tight">{{ results.sql.title }}</h3>
+    <p class="mt-2 leading-relaxed text-muted">{{ results.sql.body }}</p>
+    <p class="mt-5 break-words text-ink text-xs code" aria-hidden="true">{{ query.sql }}</p>
+    <p class="mt-2 text-muted text-xs num" aria-hidden="true">{{ query.rows }} row, {{ query.duration }}</p>
+  </article>
+
+  <article class="md:col-span-2 p-6 md:p-8 bg-surface border border-line rounded-xl reveal">
+    <span class="size-6 text-accent-ink {{ results.graph.icon }}" aria-hidden="true"></span>
+    <h3 class="mt-4 font-semibold text-ink text-xl tracking-tight">{{ results.graph.title }}</h3>
+    <p class="mt-2 leading-relaxed text-muted">{{ results.graph.body }}</p>
+    <div class="flex gap-3 items-center mt-5 text-xs code" aria-hidden="true">
+      <span class="px-2.5 py-1 font-medium text-ink bg-page border border-line rounded-lg">{{ result.model }}</span>
+      <span class="grow h-px bg-line"></span>
+      <span class="flex flex-col gap-2">
+        @foreach(result.relations as relation)
+          <span class="px-2.5 py-1 text-muted bg-page border border-line rounded-lg">{{ relation }}</span>
+        @endforeach
+      </span>
+    </div>
+  </article>
+
+  <article class="md:col-span-2 p-6 md:p-8 bg-tint rounded-xl reveal">
+    <span class="size-6 text-accent-ink {{ results.preview.icon }}" aria-hidden="true"></span>
+    <h3 class="mt-4 font-semibold text-ink text-xl tracking-tight">{{ results.preview.title }}</h3>
+    <p class="mt-2 leading-relaxed text-muted">{{ results.preview.body }}</p>
+    <div class="mt-5 p-4 bg-surface border border-line rounded-xl" aria-hidden="true">
+      <p class="font-semibold text-ink text-sm">Welcome, Ines</p>
+      <p class="mt-1 text-muted text-xs">Your account is ready.</p>
+      <p class="inline-block mt-3 px-2.5 py-1 font-medium text-on-accent text-xs bg-accent rounded-lg">Open your dashboard</p>
+    </div>
+  </article>
+</div>

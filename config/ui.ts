@@ -36,7 +36,7 @@ export default {
   // exists (the scaffold ships it), otherwise `resources/layouts`. A layout kept
   // in the other folder is never found, and "Layout not found" lists the
   // directories that were searched. Put app layouts beside the scaffold's.
-  layoutsDir: 'layouts',
+  layoutsDir: 'views/layouts',
 
   partialsDir: 'partials',
 

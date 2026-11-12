@@ -1,0 +1,31 @@
+@extends('layouts/default')
+@section('content')
+<script server>
+import { CHECKOUT_OPEN, formatCents, planById } from '~/app/Billing/plans'
+import { pricingFaqs } from '~/resources/data/faqs'
+
+const canonicalPath = '/pricing'
+const standardPrice = formatCents(planById('standard')!.priceCents)
+const lifetimePrice = formatCents(planById('lifetime')!.priceCents)
+const pageTitle = 'Pricing - Fettler'
+const pageDescription = `Fettler is free for local projects and the sandbox. Pro is ${standardPrice} with a year of updates or ${lifetimePrice} for a lifetime license.`
+const checkoutOpen = CHECKOUT_OPEN
+</script>
+<section class="mx-auto pb-10 pt-12 px-4 md:pt-20 md:px-8 max-w-6xl">
+  <h1 class="max-w-[18ch] font-semibold leading-[1.05] text-4xl text-ink tracking-tighter md:text-5xl rise" style="--i: 0">Free on your machine. Pro for everything remote.</h1>
+  <p class="mt-5 max-w-[60ch] leading-relaxed text-lg text-muted rise" style="--i: 1">Pay once for Pro. There is no subscription.</p>
+  @if(!checkoutOpen)
+    <p class="flex gap-2 items-start mt-6 max-w-[60ch] font-medium text-accent-ink rise" style="--i: 2">
+      <span class="shrink-0 mt-0.5 size-5 i-hugeicons-wrench-01" aria-hidden="true"></span>
+      Fettler is in development, so nothing is on sale yet. These are the prices checkout will open with.
+    </p>
+  @endif
+</section>
+
+<section class="mx-auto px-4 md:px-8 max-w-6xl" aria-label="Plans">
+  <PricingTable />
+  <p class="mt-6 max-w-[70ch] leading-relaxed text-muted reveal">Team seats are planned and do not have a price yet. Prices are in US dollars.</p>
+</section>
+
+<Faq :items="pricingFaqs" heading="Questions about paying" />
+@endsection
