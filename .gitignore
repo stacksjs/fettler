@@ -212,3 +212,6 @@ docs/erd.md
 
 # Published desktop builds (buddy release:desktop on the local disk)
 storage/app/desktop-updates/
+
+# Production settings stay on the deploying machine; the repository is public.
+.env.production
