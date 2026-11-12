@@ -1,6 +1,7 @@
 import { existsSync, readFileSync } from 'node:fs'
 import { join } from 'node:path'
 import process from 'node:process'
+import { decryptValue } from '@stacksjs/env/crypto'
 
 /**
  * Where this app lives in production, from one place: `APP_URL`.
@@ -13,8 +14,10 @@ import process from 'node:process'
  *
  * A development machine's own `APP_URL` is a `.localhost` name, which is not
  * an address anyone else can reach, so it is passed over for the production
- * file's. Only a plain value is read from that file: an encrypted one says
- * nothing until the deploy decrypts it, so `APP_URL` stays unencrypted there.
+ * file's. A deploy encrypts that file in place, so a value is read through the
+ * framework's own decryption, with the key in `.env.keys` (or
+ * `DOTENV_PRIVATE_KEY_PRODUCTION`). Without the key there is no address, and a
+ * release says so instead of guessing.
  */
 
 const LOCAL = /^(?:localhost|127\.0\.0\.1|\[::1\]|.*\.localhost|.*\.test)$/i
@@ -32,15 +35,39 @@ function hostOf(value: string | undefined): string | null {
   }
 }
 
-/** One variable's value in `.env.production`, as written. */
+/** The key that opens `.env.production`: the environment's on a build machine, `.env.keys` on a developer's. */
+function productionKey(root: string): string | undefined {
+  const name = 'DOTENV_PRIVATE_KEY_PRODUCTION'
+  if (process.env[name])
+    return process.env[name]
+  const file = join(root, '.env.keys')
+  if (!existsSync(file))
+    return undefined
+  const line = readFileSync(file, 'utf8').split('\n').find(entry => entry.trim().startsWith(`${name}=`))
+  return line?.slice(line.indexOf('=') + 1).trim().replace(/^["']|["']$/g, '') || undefined
+}
+
+/** One variable's value in `.env.production`, decrypted when it was stored encrypted. */
 function productionValue(name: string, root: string): string | undefined {
   const file = join(root, '.env.production')
   if (!existsSync(file))
     return undefined
   for (const line of readFileSync(file, 'utf8').split('\n')) {
     const match = new RegExp(`^\\s*(?:export\\s+)?${name}\\s*=\\s*(.*)$`).exec(line)
-    if (match)
-      return match[1]!.trim()
+    if (!match)
+      continue
+    const value = match[1]!.trim().replace(/^["']|["']$/g, '')
+    if (!value.startsWith('encrypted:'))
+      return value
+    const key = productionKey(root)
+    if (!key)
+      return undefined
+    try {
+      return decryptValue(value, key)
+    }
+    catch {
+      return undefined
+    }
   }
   return undefined
 }

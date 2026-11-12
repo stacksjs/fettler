@@ -31,7 +31,7 @@ describe('the production address', () => {
     expect(productionOrigin(project('APP_NAME=x\nAPP_URL="https://example.app"\n'))).toBe('https://example.app')
   })
 
-  test('is not read from an encrypted value', () => {
+  test('an encrypted value with no key to open it is not an address', () => {
     process.env.APP_URL = 'tinkerbelle.localhost'
     expect(productionHost(project('APP_URL="encrypted:v2:abc"\n'))).toBe('')
     expect(productionOrigin(project('APP_URL="encrypted:v2:abc"\n'))).toBe('http://localhost')
