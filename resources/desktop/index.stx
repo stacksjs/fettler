@@ -1182,13 +1182,13 @@ void loadLicense()
 
               @if(resultView() === 'tree' && inspectable())
                 <div data-fettler-tree>
-                  <JsonTree label="Result" height="60vh" depth="2" :tinker="lastValue()" @open="openNode($event)" />
+                  <JsonTree label="Result" height="calc(100vh - 9.5rem)" depth="2" :tinker="lastValue()" @open="openNode($event)" />
                 </div>
               @endif
 
               @if(resultView() === 'table' && grid())
                 <div data-fettler-table>
-                  <DataGrid label="Result rows" fileName="fettler-result" height="60vh" :rows="grid().rows" :columns="grid().columns" />
+                  <DataGrid label="Result rows" fileName="fettler-result" height="calc(100vh - 9.5rem)" :rows="grid().rows" :columns="grid().columns" />
                   @if(grid().more)
                     <p class="px-3 py-1.5 text-[11px] text-neutral-400 border-neutral-200 border-t dark:border-neutral-800">{{ grid().more }} more rows were not sent.</p>
                   @endif
@@ -1198,7 +1198,7 @@ void loadLicense()
               @if(resultView() === 'graph' && resultModels().length)
                 <div data-fettler-graph>
                   @if(relations().nodes.length)
-                    <GraphView id="fettler-relations" label="Model relations" height="60vh" :nodes="relations().nodes" :edges="relations().edges" @expand="expandRelations($event)" />
+                    <GraphView id="fettler-relations" label="Model relations" height="calc(100vh - 9.5rem)" :nodes="relations().nodes" :edges="relations().edges" @expand="expandRelations($event)" />
                   @else
                     <p class="p-3 text-neutral-500 text-xs dark:text-neutral-400">{{ modelList() ? 'This session lists no relations for that model.' : 'Reading the models...' }}</p>
                   @endif
@@ -1207,7 +1207,7 @@ void loadLicense()
 
               @if(resultView() === 'preview' && previewMarkup())
                 <div data-fettler-preview>
-                  <PreviewFrame title="Rendered preview" height="70vh" :html="previewMarkup()" />
+                  <PreviewFrame title="Rendered preview" height="calc(100vh - 9.5rem)" :html="previewMarkup()" />
                 </div>
               @endif
 
