@@ -64,7 +64,7 @@
     "build:desktop": "./buddy build:desktop"
   },
   "dependencies": {
-    "@stacksjs/stx": "0.2.862",
+    "@stacksjs/stx": "0.2.864",
     "stacks": "^0.75.555",
     "@stacksjs/env": "^0.75.555",
     "@stacksjs/path": "^0.75.555",
@@ -85,14 +85,14 @@
   },
   "devDependencies": {
     "@actions/expressions": "0.3.61",
-    "@stacksjs/components": "0.2.862",
+    "@stacksjs/components": "0.2.864",
     "better-dx": "^0.2.37",
-    "bun-plugin-stx": "0.2.862"
+    "bun-plugin-stx": "0.2.864"
   },
   "overrides": {
-    "@stacksjs/stx": "0.2.862",
-    "bun-plugin-stx": "0.2.862",
-    "@stacksjs/components": "0.2.862",
+    "@stacksjs/stx": "0.2.864",
+    "bun-plugin-stx": "0.2.864",
+    "@stacksjs/components": "0.2.864",
     "ts-images": "https://registry.pantry.dev/ts-images@22073a9",
     "@stacksjs/ts-svg": "https://registry.pantry.dev/@stacksjs/ts-svg@367a010"
   }
