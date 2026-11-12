@@ -1,5 +1,5 @@
 import type { Subprocess } from 'bun'
-import type { TinkerFrame, TinkerSessionInfo, TinkerWireFrame } from '@stacksjs/tinker'
+import type { TinkerFrame, TinkerModelSummary, TinkerSessionInfo, TinkerWireFrame } from '@stacksjs/tinker'
 import { createFrameReader } from '@stacksjs/tinker'
 
 /**
@@ -37,6 +37,7 @@ export class Runner {
   private current: string | undefined
   private stderrTail = ''
   private counter = 0
+  private modelRequests = new Map<string, (models: TinkerModelSummary[]) => void>()
   private exited = false
 
   constructor(readonly target: RunnerCommand) {
@@ -88,6 +89,13 @@ export class Runner {
           resolveReady(frame.session)
           continue
         }
+        if (frame.type === 'models') {
+          const waiting = frame.id ? this.modelRequests.get(frame.id) : undefined
+          if (frame.id)
+            this.modelRequests.delete(frame.id)
+          waiting?.(frame.models)
+          continue
+        }
         if (frame.type === 'pong' || frame.type === 'protocol-error')
           continue
         const handler = this.handlers.get(frame.id)
@@ -130,6 +138,25 @@ export class Runner {
       this.handlers.set(id, { onFrame, done: error => error ? reject(error) : resolve() })
       this.current = id
       this.proc.stdin.write(`${JSON.stringify({ op: 'eval', id, code })}\n`)
+      this.proc.stdin.flush()
+    })
+  }
+
+  /** The models the session's app loaded. Empty for a bare session, or a session too old to say. */
+  models(timeoutMs = 4000): Promise<TinkerModelSummary[]> {
+    if (this.exited)
+      return Promise.resolve([])
+    const id = `m${++this.counter}`
+    return new Promise((resolve) => {
+      const timer = setTimeout(() => {
+        this.modelRequests.delete(id)
+        resolve([])
+      }, timeoutMs)
+      this.modelRequests.set(id, (models) => {
+        clearTimeout(timer)
+        resolve(models)
+      })
+      this.proc.stdin.write(`${JSON.stringify({ op: 'models', id })}\n`)
       this.proc.stdin.flush()
     })
   }

@@ -1,6 +1,8 @@
 import type { Connection } from './targets'
 import { join } from 'node:path'
 import process from 'node:process'
+import type { ChatMessage, ModelSummary } from './ai'
+import { AiNotReady, Assistant } from './ai'
 import { findLanguageServer, LanguageService } from './language'
 import { followLog, logCommand } from './logs'
 import { Runner } from './runner'
@@ -45,6 +47,7 @@ function json(body: unknown, status = 200): Response {
 
 export async function startAgent(options: { port?: number, quiet?: boolean, storePath?: string } = {}): Promise<AgentHandle> {
   const store = new Store(options.storePath)
+  const assistant = new Assistant(store)
   const port = options.port ?? await freePort()
   const token = crypto.randomUUID().replaceAll('-', '') + crypto.randomUUID().replaceAll('-', '')
   const hosts = new Set([`127.0.0.1:${port}`, `localhost:${port}`])
@@ -58,6 +61,8 @@ export async function startAgent(options: { port?: number, quiet?: boolean, stor
   let connection: Connection | undefined
   let language: LanguageService | undefined
   let environmentOf = ''
+  // The connected app's models, asked for once per connection: names for the assistant, never rows.
+  let models: ModelSummary[] = []
 
   // Types come from the project the session is in; the sandbox has none of its own.
   function startLanguage(target: Connection): LanguageService | undefined {
@@ -108,6 +113,7 @@ export async function startAgent(options: { port?: number, quiet?: boolean, stor
         const summary = summarize(body)
         store.touchConnection({ key: summary.key, kind: summary.kind, label: summary.label, path: summary.path, where: summary.where, spec: body })
         environmentOf = environment
+        models = await next.models().catch(() => [])
         return json({ connection: { ...summarize(body), environment }, session: info })
       }
       catch (error) {
@@ -196,6 +202,41 @@ export async function startAgent(options: { port?: number, quiet?: boolean, stor
       }
       catch (error) {
         return json({ error: error instanceof Error ? error.message : String(error) }, error instanceof ConnectionError ? 422 : 502)
+      }
+    }
+
+    if (path === '/__fettler/models' && request.method === 'GET')
+      return json({ models })
+
+    if (path === '/__fettler/ai') {
+      if (request.method === 'GET')
+        return json(await assistant.status())
+      if (request.method === 'POST') {
+        const body = await request.json().catch(() => null) as Record<string, unknown> | null
+        if (!body)
+          return json({ error: 'Send the settings to change.' }, 400)
+        return json(await assistant.update(body))
+      }
+    }
+
+    if ((path === '/__fettler/ai/suggest' || path === '/__fettler/ai/ask') && request.method === 'POST') {
+      const body = await request.json().catch(() => null) as { before?: unknown, after?: unknown, messages?: unknown, code?: unknown } | null
+      if (!body)
+        return json({ error: 'Nothing was sent.' }, 400)
+      try {
+        if (path.endsWith('/suggest')) {
+          if (typeof body.before !== 'string')
+            return json({ error: 'Send the text before the cursor.' }, 400)
+          return json({ suggestion: await assistant.suggest({ before: body.before, after: typeof body.after === 'string' ? body.after : '', models, signal: request.signal }) })
+        }
+        if (!Array.isArray(body.messages) || !body.messages.every(item => item && typeof item === 'object' && typeof (item as ChatMessage).content === 'string'))
+          return json({ error: 'Send the conversation.' }, 400)
+        return json(await assistant.ask({ messages: body.messages as ChatMessage[], code: typeof body.code === 'string' ? body.code : '', models }))
+      }
+      catch (error) {
+        if (error instanceof AiNotReady)
+          return json({ error: error.message, notReady: true }, 409)
+        return json({ error: error instanceof Error ? error.message : String(error) }, 502)
       }
     }
 

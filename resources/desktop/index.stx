@@ -97,6 +97,127 @@ function logClass(level) {
   return 'text-neutral-700 dark:text-neutral-200'
 }
 
+const ai = state({ enabled: false, provider: 'anthropic', model: '', host: '', automatic: false, hasKey: false })
+const aiOpen = state(false)
+const aiKey = state('')
+const aiSaving = state(false)
+const chat = state([])
+const question = state('')
+const asking = state(false)
+const chatNote = state('')
+const ghost = state('')
+let ghostTimer = 0
+let ghostAbort = null
+let caret = { line: 0, column: 0 }
+
+async function loadAi() {
+  const response = await fetch('/__fettler/ai')
+  if (response.ok) ai.set(await response.json())
+}
+
+function setAi(name, value) {
+  ai.set({ ...ai(), [name]: value })
+}
+
+async function saveAi() {
+  aiSaving.set(true)
+  try {
+    const { hasKey: _hasKey, ...settings } = ai()
+    const response = await fetch('/__fettler/ai', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ ...settings, ...(aiKey().trim() ? { key: aiKey().trim() } : {}) }),
+    })
+    if (response.ok) ai.set(await response.json())
+    aiKey.set('')
+    aiOpen.set(false)
+  }
+  finally {
+    aiSaving.set(false)
+  }
+}
+
+async function forgetKey() {
+  const response = await fetch('/__fettler/ai', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ key: null }) })
+  if (response.ok) ai.set(await response.json())
+}
+
+function offsetOf(text, line, column) {
+  const lines = text.split('\n')
+  let offset = 0
+  for (let index = 0; index < line && index < lines.length; index++) offset += lines[index].length + 1
+  return offset + column
+}
+
+// A suggestion at the cursor. Asked for with Alt+Backslash, or after a pause when that is turned on.
+async function suggest() {
+  if (!ai().enabled || !ai().hasKey) return
+  if (ghostAbort) ghostAbort.abort()
+  ghostAbort = new AbortController()
+  const text = code()
+  const at = offsetOf(text, caret.line, caret.column)
+  try {
+    const response = await fetch('/__fettler/ai/suggest', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ before: text.slice(0, at), after: text.slice(at) }),
+      signal: ghostAbort.signal,
+    })
+    const body = await response.json()
+    ghost.set(response.ok ? (body.suggestion || '') : '')
+    if (!response.ok && body.error) notice.set(body.error)
+  }
+  catch (cause) {
+    if (!(cause && cause.name === 'AbortError')) ghost.set('')
+  }
+}
+
+function scheduleSuggest() {
+  clearTimeout(ghostTimer)
+  ghost.set('')
+  if (ai().enabled && ai().automatic && ai().hasKey) ghostTimer = setTimeout(suggest, 700)
+}
+
+function onSelection(detail) {
+  if (detail) caret = { line: detail.line, column: detail.column }
+}
+
+async function ask() {
+  const text = question().trim()
+  if (!text || asking()) return
+  const messages = [...chat(), { role: 'user', content: text }]
+  chat.set(messages)
+  question.set('')
+  asking.set(true)
+  chatNote.set('')
+  try {
+    const response = await fetch('/__fettler/ai/ask', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ messages: messages.map(message => ({ role: message.role, content: message.content })), code: code() }),
+    })
+    const body = await response.json()
+    if (!response.ok) {
+      chatNote.set(body.error || 'The assistant could not answer.')
+      if (body.notReady) aiOpen.set(true)
+      return
+    }
+    chat.set([...messages, { role: 'assistant', content: body.answer, code: body.code }])
+  }
+  catch (cause) {
+    chatNote.set(cause instanceof Error ? cause.message : 'The assistant could not answer.')
+  }
+  finally {
+    asking.set(false)
+  }
+}
+
+function useCode(source) {
+  code.set(source)
+  scheduleCheck()
+  showView('result')
+}
+
 const connectOpen = state(false)
 const connectKind = state('ssh')
 const form = state({ host: '', user: '', port: '', identityFile: '', jump: '', directory: '', envFile: '.env', container: '', pod: '', namespace: '', context: '' })
@@ -129,6 +250,9 @@ const paletteItems = derived(() => {
     { kind: 'action', id: 'run', title: 'Run', hint: 'Cmd+Enter' },
     { kind: 'action', id: 'sandbox', title: 'Open the sandbox', hint: '' },
     { kind: 'action', id: 'remote', title: 'Connect to a server, container or pod', hint: '' },
+    { kind: 'action', id: 'assistant', title: 'Ask the assistant', hint: '' },
+    { kind: 'action', id: 'ai-settings', title: 'AI settings', hint: ai().enabled ? ai().provider : 'off' },
+    { kind: 'action', id: 'suggest', title: 'Suggest at the cursor', hint: 'Alt+Backslash' },
     { kind: 'action', id: 'save', title: 'Save as snippet', hint: firstLine(code()) },
     { kind: 'action', id: 'clear-history', title: 'Clear history for this connection', hint: '' },
   ]
@@ -176,6 +300,15 @@ async function choose(item) {
   else if (item.id === 'remote') {
     connectOpen.set(true)
   }
+  else if (item.id === 'assistant') {
+    showView('assistant')
+  }
+  else if (item.id === 'ai-settings') {
+    aiOpen.set(true)
+  }
+  else if (item.id === 'suggest') {
+    await suggest()
+  }
   else if (item.id === 'run') {
     runAll()
   }
@@ -205,6 +338,11 @@ function paletteKey(event) {
 }
 
 function appKey(event) {
+  if (event.altKey && event.code === 'Backslash') {
+    event.preventDefault()
+    void suggest()
+    return
+  }
   if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === 'k') {
     event.preventDefault()
     if (paletteOpen()) closePalette()
@@ -421,6 +559,7 @@ function runSelection(detail) {
 }
 
 void loadState()
+void loadAi()
 </script>
 
 @nolayout
@@ -481,7 +620,9 @@ void loadState()
             :diagnostics="diagnostics()"
             :widgets="widgets()"
             :autoComplete="true"
-            @input="scheduleCheck()"
+            :ghostText="ghost()"
+            @selection="onSelection($event)"
+            @input="scheduleCheck(); scheduleSuggest()"
             @complete="complete($event)"
             @run="runAll($event)"
             @run-selection="runSelection($event)"
@@ -492,6 +633,7 @@ void loadState()
           <div class="flex gap-1 items-center px-2 h-9 border-b border-neutral-200 dark:border-neutral-800 shrink-0" role="tablist">
             <button type="button" role="tab" :aria-selected="view() === 'result' ? 'true' : 'false'" :class="view() === 'result' ? 'px-2.5 h-6 text-xs font-medium bg-neutral-200 dark:bg-neutral-800 rounded' : 'px-2.5 h-6 text-xs text-neutral-500 rounded'" @click="showView('result')" data-fettler-tab-result>Result</button>
             <button type="button" role="tab" :aria-selected="view() === 'logs' ? 'true' : 'false'" :class="view() === 'logs' ? 'px-2.5 h-6 text-xs font-medium bg-neutral-200 dark:bg-neutral-800 rounded' : 'px-2.5 h-6 text-xs text-neutral-500 rounded'" @click="showView('logs')" data-fettler-tab-logs>Logs</button>
+            <button type="button" role="tab" :aria-selected="view() === 'assistant' ? 'true' : 'false'" :class="view() === 'assistant' ? 'px-2.5 h-6 text-xs font-medium bg-neutral-200 dark:bg-neutral-800 rounded' : 'px-2.5 h-6 text-xs text-neutral-500 rounded'" @click="showView('assistant')" data-fettler-tab-assistant>Assistant</button>
             @if(view() === 'logs')
               <select :value="logLevel()" @change="logLevel.set($event.target.value)" aria-label="Lowest level to show" class="ml-auto px-1.5 h-6 text-xs bg-white dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-800 rounded">
                 <option value="all">All levels</option>
@@ -515,6 +657,37 @@ void loadState()
               @if(!logNote() && shownLogs().length === 0)
                 <p class="px-1 text-neutral-500">{{ connected() ? 'No lines yet.' : 'Open a project to follow its log.' }}</p>
               @endif
+            </div>
+          @endif
+
+          @if(view() === 'assistant')
+            <div class="flex flex-col flex-1 min-h-0" data-fettler-assistant>
+              <div class="flex-1 min-h-0 overflow-y-auto p-3 space-y-3">
+                @if(!ai().enabled || !ai().hasKey)
+                  <div class="p-3 text-neutral-600 text-sm dark:text-neutral-300 bg-white dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-800 rounded-lg">
+                    <p>The assistant uses your own API key. It is kept in this computer's keychain. Only your code, your question and the names of your models and columns are sent, never rows of data.</p>
+                    <button type="button" class="mt-3 px-3 h-7 font-medium text-white text-xs bg-neutral-900 dark:bg-neutral-100 dark:text-neutral-900 rounded-md" @click="aiOpen.set(true)">Set up AI</button>
+                  </div>
+                @endif
+                @foreach(chat() as message)
+                  <div :class="message.role === 'user' ? 'ml-8 p-2.5 text-sm bg-neutral-200 dark:bg-neutral-800 rounded-lg' : 'mr-8 p-2.5 text-sm bg-white dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-800 rounded-lg'">
+                    <pre class="font-sans whitespace-pre-wrap break-words">{{ message.content }}</pre>
+                    @if(message.code)
+                      <button type="button" class="mt-2 px-2.5 h-6 text-xs border border-neutral-300 dark:border-neutral-700 rounded" @click="useCode(message.code)">Put this code in the editor</button>
+                    @endif
+                  </div>
+                @endforeach
+                @if(asking())
+                  <p class="text-neutral-500 text-xs">Thinking</p>
+                @endif
+                @if(chatNote())
+                  <p class="text-red-700 text-xs dark:text-red-300" role="alert">{{ chatNote() }}</p>
+                @endif
+              </div>
+              <div class="flex gap-2 p-2 border-t border-neutral-200 dark:border-neutral-800">
+                <input type="text" :value="question()" @input="question.set($event.target.value)" @keydown.enter="ask()" placeholder="Describe what you want the code to do" aria-label="Question for the assistant" class="flex-1 px-2.5 h-8 text-sm bg-white dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-800 rounded-md focus:outline-none focus:border-neutral-400">
+                <button type="button" class="px-3 h-8 font-medium text-white text-xs bg-neutral-900 dark:bg-neutral-100 dark:text-neutral-900 rounded-md disabled:opacity-40" :disabled="asking()" @click="ask()">Ask</button>
+              </div>
             </div>
           @endif
 
@@ -557,6 +730,45 @@ void loadState()
           </div>
         </section>
       </main>
+
+      @if(aiOpen())
+        <div class="fixed inset-0 z-40 flex items-start justify-center pt-20 bg-black/30" @click.self="aiOpen.set(false)" data-fettler-ai-settings>
+          <div class="w-full max-w-md bg-white dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-700 rounded-xl shadow-2xl" role="dialog" aria-modal="true" aria-label="AI settings">
+            <div class="grid gap-3 p-4">
+              <label class="flex gap-2 items-center text-sm"><input type="checkbox" :checked="ai().enabled" @change="setAi('enabled', $event.target.checked)"> Use AI in Fettler</label>
+              <label class="flex flex-col gap-1 text-[11px] text-neutral-500">Provider
+                <select :value="ai().provider" @change="setAi('provider', $event.target.value)" class="px-2 h-8 text-neutral-900 text-xs dark:text-neutral-100 bg-white dark:bg-neutral-950 border border-neutral-200 dark:border-neutral-700 rounded-md">
+                  <option value="anthropic">Anthropic</option>
+                  <option value="openai">OpenAI</option>
+                  <option value="ollama">Ollama (runs on this computer)</option>
+                </select>
+              </label>
+              <label class="flex flex-col gap-1 text-[11px] text-neutral-500">Model (optional)
+                <input type="text" :value="ai().model" @input="setAi('model', $event.target.value)" placeholder="The provider's fast model" autocomplete="off" spellcheck="false" class="px-2 h-8 font-mono text-neutral-900 text-xs dark:text-neutral-100 bg-white dark:bg-neutral-950 border border-neutral-200 dark:border-neutral-700 rounded-md focus:outline-none">
+              </label>
+              @if(ai().provider === 'ollama')
+                <label class="flex flex-col gap-1 text-[11px] text-neutral-500">Ollama address
+                  <input type="text" :value="ai().host" @input="setAi('host', $event.target.value)" placeholder="http://127.0.0.1:11434" autocomplete="off" spellcheck="false" class="px-2 h-8 font-mono text-neutral-900 text-xs dark:text-neutral-100 bg-white dark:bg-neutral-950 border border-neutral-200 dark:border-neutral-700 rounded-md focus:outline-none">
+                </label>
+              @endif
+              @if(ai().provider !== 'ollama')
+                <label class="flex flex-col gap-1 text-[11px] text-neutral-500">{{ ai().hasKey ? 'API key (one is saved; type to replace it)' : 'API key' }}
+                  <input type="password" :value="aiKey()" @input="aiKey.set($event.target.value)" autocomplete="off" spellcheck="false" class="px-2 h-8 font-mono text-neutral-900 text-xs dark:text-neutral-100 bg-white dark:bg-neutral-950 border border-neutral-200 dark:border-neutral-700 rounded-md focus:outline-none">
+                </label>
+              @endif
+              <label class="flex gap-2 items-center text-sm"><input type="checkbox" :checked="ai().automatic" @change="setAi('automatic', $event.target.checked)"> Suggest after a pause, not only on Alt+Backslash</label>
+              <p class="text-[11px] text-neutral-500">The key is stored in this computer's keychain and is never shown again. Requests carry your code, your question and the names of your models and columns.</p>
+            </div>
+            <div class="flex gap-2 justify-end px-4 py-3 border-t border-neutral-200 dark:border-neutral-800">
+              @if(ai().hasKey && ai().provider !== 'ollama')
+                <button type="button" class="mr-auto px-3 h-8 text-red-700 text-xs dark:text-red-300 border border-neutral-200 dark:border-neutral-700 rounded-md" @click="forgetKey()">Forget the key</button>
+              @endif
+              <button type="button" class="px-3 h-8 text-xs border border-neutral-200 dark:border-neutral-700 rounded-md" @click="aiOpen.set(false)">Cancel</button>
+              <button type="button" class="px-3 h-8 font-medium text-white text-xs bg-neutral-900 dark:bg-neutral-100 dark:text-neutral-900 rounded-md disabled:opacity-50" :disabled="aiSaving()" @click="saveAi()">Save</button>
+            </div>
+          </div>
+        </div>
+      @endif
 
       @if(connectOpen())
         <div class="fixed inset-0 z-40 flex items-start justify-center pt-16 bg-black/30" @click.self="connectOpen.set(false)" data-fettler-connect>
