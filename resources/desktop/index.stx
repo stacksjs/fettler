@@ -232,6 +232,35 @@ async function loadPanels() {
   if (body.error) panelsNote.set(body.error)
 }
 
+const boxes = state([])
+const boxesNote = state('')
+const boxesLoading = state(false)
+
+// The servers this project is deployed to, as the project itself reports them.
+async function loadBoxes() {
+  boxesLoading.set(true)
+  boxes.set([])
+  boxesNote.set('')
+  try {
+    const response = await fetch('/__fettler/boxes', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ environment: 'production' }) })
+    const body = await response.json()
+    if (!response.ok) throw new Error(body.error || 'The deploys could not be listed.')
+    boxes.set(body.targets || [])
+    boxesNote.set(body.targets && body.targets.length ? (body.warnings || []).join(' ') : 'This project has no server deploys for production.')
+  }
+  catch (cause) {
+    boxesNote.set(cause instanceof Error ? cause.message : 'The deploys could not be listed.')
+  }
+  finally {
+    boxesLoading.set(false)
+  }
+}
+
+async function connectBox(target) {
+  await connect(target.connection)
+  if (connected() && connection().kind === 'ssh') connectOpen.set(false)
+}
+
 const mcpOpen = state(false)
 const mcp = state({ enabled: false, address: '', token: '' })
 
@@ -868,6 +897,19 @@ void loadMcp()
               <button type="button" role="tab" :aria-selected="connectKind() === 'ssh' ? 'true' : 'false'" :class="connectKind() === 'ssh' ? 'px-3 h-7 text-xs font-medium bg-neutral-100 dark:bg-neutral-800 rounded-md' : 'px-3 h-7 text-xs text-neutral-500 rounded-md'" @click="connectKind.set('ssh'); found.set([])">SSH</button>
               <button type="button" role="tab" :aria-selected="connectKind() === 'docker' ? 'true' : 'false'" :class="connectKind() === 'docker' ? 'px-3 h-7 text-xs font-medium bg-neutral-100 dark:bg-neutral-800 rounded-md' : 'px-3 h-7 text-xs text-neutral-500 rounded-md'" @click="connectKind.set('docker'); found.set([])">Docker</button>
               <button type="button" role="tab" :aria-selected="connectKind() === 'kube' ? 'true' : 'false'" :class="connectKind() === 'kube' ? 'px-3 h-7 text-xs font-medium bg-neutral-100 dark:bg-neutral-800 rounded-md' : 'px-3 h-7 text-xs text-neutral-500 rounded-md'" @click="connectKind.set('kube'); found.set([])">Kubernetes</button>
+            </div>
+            <div class="px-4 pt-3" data-fettler-boxes>
+              <div class="flex gap-2 items-center">
+                <button type="button" class="px-2.5 h-7 text-xs border border-neutral-200 dark:border-neutral-700 rounded-md disabled:opacity-50" :disabled="boxesLoading()" @click="loadBoxes()">{{ boxesLoading() ? 'Asking the project' : 'Servers this project is deployed to' }}</button>
+                <span class="min-w-0 text-[11px] text-neutral-500 truncate">{{ boxesNote() }}</span>
+              </div>
+              @if(boxes().length)
+                <ul class="mt-2 border border-neutral-200 dark:border-neutral-700 rounded-md divide-neutral-200 divide-y dark:divide-neutral-800">
+                  @foreach(boxes() as box)
+                    <li class="flex gap-3 items-baseline px-3 py-1.5 text-xs cursor-default hover:bg-neutral-100 dark:hover:bg-neutral-800" @click="connectBox(box)"><span class="font-medium">{{ box.title }}</span><span class="ml-auto min-w-0 font-mono text-[11px] text-neutral-400 truncate">{{ box.connection.directory }}</span></li>
+                  @endforeach
+                </ul>
+              @endif
             </div>
             <div class="grid gap-3 grid-cols-2 p-4">
               @if(connectKind() === 'ssh')

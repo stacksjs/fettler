@@ -3,6 +3,7 @@ import { join } from 'node:path'
 import process from 'node:process'
 import type { ChatMessage, ModelSummary, SecretStore } from './ai'
 import { AiNotReady, Assistant } from './ai'
+import { BoxesUnavailable, listBoxes } from './boxes'
 import { DRIVER_BOOTSTRAP, PANELS_SNIPPET, plain, toPanels } from './driver'
 import { findLanguageServer, LanguageService } from './language'
 import { followLog, logCommand } from './logs'
@@ -260,6 +261,23 @@ export async function startAgent(options: { port?: number, quiet?: boolean, stor
       }
       catch (error) {
         return json({ available: false, error: error instanceof Error ? error.message : String(error), items: [], diagnostics: [], hover: null })
+      }
+    }
+
+    if (path === '/__fettler/boxes' && request.method === 'POST') {
+      const body = await request.json().catch(() => null) as { environment?: unknown } | null
+      // The project to ask: the one that is open, or the last Stacks project that was.
+      const project = connection?.kind === 'local'
+        ? connection.path
+        : store.recentConnections(30).find(item => item.kind === 'local' && item.path)?.path
+      if (!project)
+        return json({ error: 'Open a Stacks project locally first. Its deploys are read from it.' }, 409)
+      try {
+        const listed = await listBoxes(project, typeof body?.environment === 'string' && body.environment ? body.environment : 'production')
+        return json({ project, ...listed })
+      }
+      catch (error) {
+        return json({ error: error instanceof Error ? error.message : String(error) }, error instanceof BoxesUnavailable ? 422 : 502)
       }
     }
 
