@@ -1,10 +1,14 @@
 import type { Connection } from './targets'
 import { join } from 'node:path'
 import process from 'node:process'
-import type { ChatMessage, ModelSummary } from './ai'
+import type { ChatMessage, ModelSummary, SecretStore } from './ai'
 import { AiNotReady, Assistant } from './ai'
 import { findLanguageServer, LanguageService } from './language'
 import { followLog, logCommand } from './logs'
+import type { McpHost } from './mcp'
+import { renderValue } from '@stacksjs/tinker'
+import { keychain } from './ai'
+import { mcpTools, tokenMatches } from './mcp'
 import { Runner } from './runner'
 import { Store } from './store'
 import { containerWorkdir, listContainers, listKubeContexts, listKubeNamespaces, listKubePods } from './remote'
@@ -41,14 +45,29 @@ async function freePort(): Promise<number> {
   return port
 }
 
+async function portIsFree(port: number): Promise<boolean> {
+  try {
+    const probe = Bun.listen({ hostname: '127.0.0.1', port, socket: { data() {} } })
+    probe.stop(true)
+    return true
+  }
+  catch {
+    return false
+  }
+}
+
 function json(body: unknown, status = 200): Response {
   return new Response(JSON.stringify(body), { status, headers: { 'content-type': 'application/json', 'cache-control': 'no-store' } })
 }
 
-export async function startAgent(options: { port?: number, quiet?: boolean, storePath?: string } = {}): Promise<AgentHandle> {
+export async function startAgent(options: { port?: number, quiet?: boolean, storePath?: string, secrets?: SecretStore } = {}): Promise<AgentHandle> {
   const store = new Store(options.storePath)
-  const assistant = new Assistant(store)
-  const port = options.port ?? await freePort()
+  const secrets = options.secrets ?? keychain
+  const assistant = new Assistant(store, secrets)
+  // The same port every launch when it is free, so an MCP client's saved address keeps working.
+  const remembered = store.setting<number>('agent.port', 0)
+  const port = options.port ?? (remembered && await portIsFree(remembered) ? remembered : await freePort())
+  store.setSetting('agent.port', port)
   const token = crypto.randomUUID().replaceAll('-', '') + crypto.randomUUID().replaceAll('-', '')
   const hosts = new Set([`127.0.0.1:${port}`, `localhost:${port}`])
 
@@ -76,6 +95,70 @@ export async function startAgent(options: { port?: number, quiet?: boolean, stor
 
   const keyOf = (target: Connection): string => summarize(target).key
 
+  /** Start a session on a target and make it the one the window and the MCP tools use. */
+  async function openConnection(target: Connection): Promise<{ info: Awaited<Runner['ready']>, environment: string }> {
+    const next = new Runner(await commandFor(target))
+    const info = await next.ready
+    // Ask the session itself where it is: the app's own word for its environment.
+    let environment = ''
+    await next.run('(globalThis.config?.app?.env ?? process.env.APP_ENV ?? process.env.NODE_ENV ?? "")', (frame) => {
+      const seen = frame as { type?: string, value?: { t?: string, v?: unknown } }
+      if (seen.type === 'result' && seen.value?.t === 'string')
+        environment = String(seen.value.v)
+    }).catch(() => {})
+    runner?.stop()
+    runner = next
+    connection = target
+    language?.stop()
+    language = startLanguage(target)
+    const summary = summarize(target)
+    store.touchConnection({ key: summary.key, kind: summary.kind, label: summary.label, path: summary.path, where: summary.where, spec: target })
+    environmentOf = environment
+    models = await next.models().catch(() => [])
+    return { info, environment }
+  }
+
+  // MCP: off until the person turns it on, and behind a token of its own.
+  const mcpHost: McpHost = {
+    current: () => connection ? { connection, environment: environmentOf } : undefined,
+    open: async (key) => {
+      if (key === 'sandbox')
+        return openConnection({ kind: 'sandbox' })
+      const known = store.recentConnections(50).find(item => item.key === key)
+      if (!known?.spec)
+        throw new ConnectionError(`No connection named ${key}. Call list_connections for the keys.`)
+      return openConnection(known.spec as Connection)
+    },
+    run: (code, onFrame) => {
+      if (!runner?.running)
+        return Promise.reject(new Error('No session is open.'))
+      const ran = connection
+      let ok = false
+      let durationMs: number | null = null
+      return runner.run(code, (frame) => {
+        const seen = frame as { type?: string, ok?: boolean, durationMs?: number }
+        if (seen.type === 'done')
+          ok = seen.ok === true
+        if (seen.type === 'result' || seen.type === 'error')
+          durationMs = seen.durationMs ?? null
+        onFrame(frame)
+      }).then(() => {
+        if (ran)
+          store.recordRun(keyOf(ran), code, ok, durationMs)
+      })
+    },
+    models: () => models,
+  }
+  let mcpToken = store.setting('mcp.enabled', false) ? await secrets.get('mcp.token') : null
+  const { createMCPServer } = await import('@stacksjs/ai')
+  const mcp = createMCPServer({
+    name: 'fettler',
+    version: '0.0.0',
+    instructions: 'Run TypeScript in the apps Fettler is connected to. Call list_connections first. Never set confirm_production unless the person asked for production in so many words.',
+    authenticate: request => mcpToken && tokenMatches(request.headers.get('authorization'), mcpToken) ? { fettler: true } : new Response('Unauthorized', { status: 401 }),
+    tools: mcpTools(mcpHost, store, renderValue) as never,
+  })
+
   const authorized = (request: Request): boolean => {
     const cookies = request.headers.get('cookie') ?? ''
     return cookies.split(';').some(part => part.trim() === `${COOKIE}=${token}`)
@@ -96,25 +179,8 @@ export async function startAgent(options: { port?: number, quiet?: boolean, stor
       if (!body || !['sandbox', 'local', 'ssh', 'docker', 'kube'].includes(body.kind) || (body.kind === 'local' && typeof body.path !== 'string'))
         return json({ error: 'Name a sandbox, a local project, or a remote target.' }, 400)
       try {
-        const next = new Runner(await commandFor(body))
-        const info = await next.ready
-        // Ask the session itself where it is: the app's own word for its environment.
-        let environment = ''
-        await next.run('(globalThis.config?.app?.env ?? process.env.APP_ENV ?? process.env.NODE_ENV ?? "")', (frame) => {
-          const seen = frame as { type?: string, value?: { t?: string, v?: unknown } }
-          if (seen.type === 'result' && seen.value?.t === 'string')
-            environment = String(seen.value.v)
-        }).catch(() => {})
-        runner?.stop()
-        runner = next
-        connection = body
-        language?.stop()
-        language = startLanguage(body)
-        const summary = summarize(body)
-        store.touchConnection({ key: summary.key, kind: summary.kind, label: summary.label, path: summary.path, where: summary.where, spec: body })
-        environmentOf = environment
-        models = await next.models().catch(() => [])
-        return json({ connection: { ...summarize(body), environment }, session: info })
+        const opened = await openConnection(body)
+        return json({ connection: { ...summarize(body), environment: opened.environment }, session: opened.info })
       }
       catch (error) {
         return json({ error: error instanceof Error ? error.message : String(error) }, error instanceof ConnectionError ? 422 : 502)
@@ -202,6 +268,26 @@ export async function startAgent(options: { port?: number, quiet?: boolean, stor
       }
       catch (error) {
         return json({ error: error instanceof Error ? error.message : String(error) }, error instanceof ConnectionError ? 422 : 502)
+      }
+    }
+
+    if (path === '/__fettler/mcp-settings') {
+      const address = `http://127.0.0.1:${port}/__fettler/mcp`
+      if (request.method === 'GET')
+        return json({ enabled: Boolean(mcpToken), address })
+      if (request.method === 'POST') {
+        const body = await request.json().catch(() => null) as { enabled?: unknown } | null
+        if (body?.enabled === true) {
+          // A fresh token each time it is turned on: the old one stops working, and this one is shown once.
+          mcpToken = crypto.randomUUID().replaceAll('-', '') + crypto.randomUUID().replaceAll('-', '')
+          await secrets.set('mcp.token', mcpToken)
+          store.setSetting('mcp.enabled', true)
+          return json({ enabled: true, address, token: mcpToken })
+        }
+        mcpToken = null
+        await secrets.delete('mcp.token').catch(() => {})
+        store.setSetting('mcp.enabled', false)
+        return json({ enabled: false, address })
       }
     }
 
@@ -353,6 +439,10 @@ export async function startAgent(options: { port?: number, quiet?: boolean, stor
           },
         })
       }
+
+      // An AI tool's door. Its own bearer token; the window's cookie does not open it and it does not open the window's API.
+      if (url.pathname === '/__fettler/mcp')
+        return mcpToken ? mcp.handle(request) : new Response('Not found', { status: 404 })
 
       if (url.pathname.startsWith('/__fettler/')) {
         if (!authorized(request))
