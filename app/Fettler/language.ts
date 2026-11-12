@@ -54,6 +54,25 @@ export function findLanguageServer(root: string, fallbackRoot: string): string |
   return undefined
 }
 
+/**
+ * The names a session adds to the global scope, declared for the checker. They
+ * go after the user's text so no line of theirs moves.
+ */
+const SESSION_GLOBALS = [
+  'declare global {',
+  '  /** Show a value in the output without ending the run. */',
+  '  function dump(...values: unknown[]): void',
+  '  /** Show a value, then stop the run. */',
+  '  function dd(...values: unknown[]): never',
+  '  /** Render markup or a mail so the result is shown as a page. */',
+  '  const preview: {',
+  '    html: (markup: string, title?: string) => unknown',
+  '    mail: (name: string, variables?: Record<string, unknown>) => Promise<unknown>',
+  '  }',
+  '}',
+  '',
+].join('\n')
+
 export class LanguageService {
   private proc: Subprocess<'pipe', 'pipe', 'pipe'>
   private nextId = 1
@@ -152,7 +171,7 @@ export class LanguageService {
    */
   private async sync(text: string): Promise<void> {
     await this.ready
-    const content = `${text}\nexport {}\n`
+    const content = `${text}\nexport {}\n${SESSION_GLOBALS}`
     if (!this.opened) {
       this.opened = true
       this.text = content

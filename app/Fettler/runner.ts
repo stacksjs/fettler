@@ -1,6 +1,11 @@
 import type { Subprocess } from 'bun'
 import type { TinkerFrame, TinkerModelSummary, TinkerSessionInfo, TinkerWireFrame } from '@stacksjs/tinker'
+import { join } from 'node:path'
 import { createFrameReader } from '@stacksjs/tinker'
+import { declaredEnvKeys, sessionEnvironment } from './environment'
+
+// What this app loaded for itself from its own env files, read once. None of it belongs in a project's session.
+const OWN_ENV_KEYS = declaredEnvKeys(join(import.meta.dir, '../..'))
 
 /**
  * One running tinker session on a target, driven over its stdio.
@@ -43,7 +48,7 @@ export class Runner {
   constructor(readonly target: RunnerCommand) {
     this.proc = Bun.spawn(target.command, {
       cwd: target.cwd,
-      env: { ...process.env, ...target.env },
+      env: sessionEnvironment(OWN_ENV_KEYS, target.env),
       stdin: 'pipe',
       stdout: 'pipe',
       stderr: 'pipe',

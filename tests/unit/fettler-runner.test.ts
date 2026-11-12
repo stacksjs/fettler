@@ -2,6 +2,7 @@ import { afterEach, describe, expect, test } from 'bun:test'
 import { mkdtempSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
+import { declaredEnvKeys, sessionEnvironment } from '../../app/Fettler/environment'
 import { Runner, RunnerExited } from '../../app/Fettler/runner'
 import { commandFor, ConnectionError, projectKind, summarize, validate } from '../../app/Fettler/targets'
 
@@ -103,4 +104,25 @@ describe('remote targets', () => {
     expect(summarize({ kind: 'docker', container: 'web-1', directory: '/app' }).key).toBe('docker:web-1:/app')
     expect(summarize({ kind: 'kube', pod: 'api-0', namespace: 'prod', context: 'live', directory: '/app' }).where).toBe('live/prod/api-0')
   })
+})
+
+describe('a session\'s environment', () => {
+  test('leaves out what this app declared for itself, by name', () => {
+    const root = mkdtempSync(join(tmpdir(), 'fettler-env-own-'))
+    writeFileSync(join(root, '.env'), 'APP_NAME=Fettler\nexport DB_CONNECTION="sqlite"\n# COMMENTED=1\n  lower_case=ok\n')
+    writeFileSync(join(root, '.env.local'), 'SECRET_KEY=abc\n')
+    const own = declaredEnvKeys(root)
+    expect([...own].sort()).toEqual(['APP_NAME', 'DB_CONNECTION', 'SECRET_KEY', 'lower_case'])
+    const environment = sessionEnvironment(own, { FETTLER_BOOT: '1' }, { APP_NAME: 'Fettler', PATH: '/usr/bin', SECRET_KEY: 'abc', HOME: '/h' })
+    expect(environment).toEqual({ PATH: '/usr/bin', HOME: '/h', FETTLER_BOOT: '1' })
+  })
+
+  test('a project sees its own name, not this app\'s', async () => {
+    const project = mkdtempSync(join(tmpdir(), 'fettler-env-project-'))
+    writeFileSync(join(project, 'package.json'), '{ "name": "other" }')
+    writeFileSync(join(project, '.env'), 'APP_NAME=Other\n')
+    runner = new Runner(await commandFor({ kind: 'local', path: project }))
+    const frames = await collect(runner, 'process.env.APP_NAME')
+    expect(frames.find(frame => frame.type === 'result').value).toEqual({ t: 'string', v: 'Other' })
+  }, 30_000)
 })

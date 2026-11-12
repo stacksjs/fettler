@@ -1,5 +1,6 @@
 <script client>
 import { fuzzyFilter } from '../functions/fuzzy'
+import { tableOf, tableToCsv, tableToJson, viewRows } from '../functions/tinker-table'
 import { renderTinkerValue } from '../functions/tinker-value'
 
 const code = state('const numbers = [1, 2, 3]\nnumbers.map(n => n * 2)\n')
@@ -277,6 +278,35 @@ async function setMcp(enabled) {
 // What an MCP client is given: the address and the bearer token, in the shape most of them take.
 const mcpConfig = derived(() => JSON.stringify({ mcpServers: { fettler: { type: 'http', url: mcp().address, headers: { Authorization: `Bearer ${mcp().token || 'the token shown when you turned this on'}` } } } }, null, 2))
 
+const lastValue = state(null)
+const resultView = state('text')
+const tableQuery = state('')
+const tableSort = state(null)
+const copied = state('')
+
+const table = derived(() => tableOf(lastValue()))
+const shownRows = derived(() => table() ? viewRows(table(), tableQuery(), tableSort()) : [])
+const previewMarkup = derived(() => lastValue() && lastValue().t === 'html' ? lastValue().html : '')
+
+function sortBy(column) {
+  const current = tableSort()
+  if (current && current.column === column) tableSort.set(current.descending ? null : { column, descending: true })
+  else tableSort.set({ column, descending: false })
+}
+
+function sortMark(column) {
+  const current = tableSort()
+  return current && current.column === column ? (current.descending ? ' v' : ' ^') : ''
+}
+
+async function copyTable(format) {
+  if (!table()) return
+  const view = { ...table(), rows: shownRows() }
+  await globalThis.navigator.clipboard.writeText(format === 'csv' ? tableToCsv(view) : tableToJson(view))
+  copied.set(format === 'csv' ? 'Copied as CSV' : 'Copied as JSON')
+  setTimeout(() => copied.set(''), 1500)
+}
+
 const connectOpen = state(false)
 const connectKind = state('ssh')
 const form = state({ host: '', user: '', port: '', identityFile: '', jump: '', directory: '', envFile: '.env', container: '', pod: '', namespace: '', context: '' })
@@ -520,14 +550,23 @@ function connectProject() {
 }
 
 function take(frame) {
-  if (frame.type === 'stdout' || frame.type === 'stderr' || frame.type === 'stray') output.set(output() + frame.text)
+  // Colour codes are for a terminal. Here they are noise.
+  if (frame.type === 'stdout' || frame.type === 'stderr' || frame.type === 'stray') output.set(output() + frame.text.replace(/\u001B\[[0-9;]*[A-Za-z]/g, ''))
   else if (frame.type === 'dump') output.set(`${output()}${renderTinkerValue(frame.value)}\n`)
   else if (frame.type === 'query') queries.set([...queries(), frame])
   else if (frame.type === 'probe') {
     const text = frame.kind === 'time' ? `${frame.ms} ms` : renderTinkerValue(frame.value).replace(/\s*\n\s*/g, ' ')
     widgets.set([...widgets(), { line: frame.line, text: text.length > 120 ? `${text.slice(0, 120)}...` : text, kind: frame.kind === 'time' ? 'info' : 'result' }])
   }
-  else if (frame.type === 'result') { result.set(renderTinkerValue(frame.value)); duration.set(`${frame.durationMs} ms`) }
+  else if (frame.type === 'result') {
+    result.set(renderTinkerValue(frame.value))
+    duration.set(`${frame.durationMs} ms`)
+    lastValue.set(frame.value)
+    // Open on the view that suits the value: a page for markup, a table for a list of records.
+    resultView.set(frame.value.t === 'html' ? 'preview' : tableOf(frame.value) ? 'table' : 'text')
+    tableQuery.set('')
+    tableSort.set(null)
+  }
   else if (frame.type === 'error') { failure.set(renderTinkerValue(frame.error)); duration.set(`${frame.durationMs} ms`) }
   else if (frame.type === 'agent-error') failure.set(frame.message)
 }
@@ -541,6 +580,7 @@ async function run(source) {
   duration.set('')
   queries.set([])
   widgets.set([])
+  lastValue.set(null)
   try {
     const response = await fetch('/__fettler/run', {
       method: 'POST',
@@ -799,8 +839,57 @@ void loadMcp()
 
           @if(result())
             <article class="bg-white dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-800 rounded-lg" data-fettler-result>
-              <h2 class="flex justify-between px-3 py-1.5 font-medium text-[11px] text-neutral-500 border-b border-neutral-200 dark:border-neutral-800"><span>Result</span><span class="font-mono">{{ duration() }}</span></h2>
-              <pre class="p-3 overflow-x-auto font-mono text-xs whitespace-pre-wrap">{{ result() }}</pre>
+              <h2 class="flex gap-2 items-center px-3 py-1.5 font-medium text-[11px] text-neutral-500 border-b border-neutral-200 dark:border-neutral-800">
+                <span>Result</span>
+                @if(table())
+                  <button type="button" :class="resultView() === 'table' ? 'px-1.5 rounded bg-neutral-200 dark:bg-neutral-800 text-neutral-900 dark:text-neutral-100' : 'px-1.5 rounded'" @click="resultView.set('table')" data-fettler-view-table>Table</button>
+                @endif
+                @if(previewMarkup())
+                  <button type="button" :class="resultView() === 'preview' ? 'px-1.5 rounded bg-neutral-200 dark:bg-neutral-800 text-neutral-900 dark:text-neutral-100' : 'px-1.5 rounded'" @click="resultView.set('preview')" data-fettler-view-preview>Preview</button>
+                @endif
+                @if(table() || previewMarkup())
+                  <button type="button" :class="resultView() === 'text' ? 'px-1.5 rounded bg-neutral-200 dark:bg-neutral-800 text-neutral-900 dark:text-neutral-100' : 'px-1.5 rounded'" @click="resultView.set('text')">Text</button>
+                @endif
+                <span class="ml-auto font-mono">{{ duration() }}</span>
+              </h2>
+
+              @if(resultView() === 'table' && table())
+                <div class="flex gap-2 items-center px-3 py-1.5 border-b border-neutral-200 dark:border-neutral-800">
+                  <input type="text" :value="tableQuery()" @input="tableQuery.set($event.target.value)" placeholder="Search rows" aria-label="Search rows" class="px-2 w-48 h-6 text-xs bg-white dark:bg-neutral-950 border border-neutral-200 dark:border-neutral-800 rounded focus:outline-none">
+                  <span class="text-[11px] text-neutral-400">{{ shownRows().length }} of {{ table().rows.length }} rows{{ table().more ? `, ${table().more} more not sent` : '' }}</span>
+                  <span class="ml-auto text-[11px] text-neutral-400" role="status">{{ copied() }}</span>
+                  <button type="button" class="px-2 h-6 text-[11px] border border-neutral-200 dark:border-neutral-800 rounded" @click="copyTable('csv')">Copy CSV</button>
+                  <button type="button" class="px-2 h-6 text-[11px] border border-neutral-200 dark:border-neutral-800 rounded" @click="copyTable('json')">Copy JSON</button>
+                </div>
+                <div class="max-h-[60vh] overflow-auto" data-fettler-table>
+                  <table class="min-w-full text-xs">
+                    <thead class="sticky top-0 bg-neutral-100 dark:bg-neutral-800">
+                      <tr>
+                        @foreach(table().columns as column, index)
+                          <th scope="col" class="px-3 py-1.5 font-medium text-left whitespace-nowrap cursor-default select-none" @click="sortBy(index)">{{ column }}{{ sortMark(index) }}</th>
+                        @endforeach
+                      </tr>
+                    </thead>
+                    <tbody class="font-mono">
+                      @foreach(shownRows() as row)
+                        <tr class="border-t border-neutral-200 dark:border-neutral-800">
+                          @foreach(row as cell)
+                            <td class="px-3 py-1 max-w-xs truncate whitespace-nowrap">{{ cell }}</td>
+                          @endforeach
+                        </tr>
+                      @endforeach
+                    </tbody>
+                  </table>
+                </div>
+              @endif
+
+              @if(resultView() === 'preview' && previewMarkup())
+                <iframe sandbox="" :srcdoc="previewMarkup()" title="Rendered preview" class="w-full h-[70vh] bg-white rounded-b-lg" data-fettler-preview></iframe>
+              @endif
+
+              @if(resultView() === 'text' || (resultView() === 'table' && !table()) || (resultView() === 'preview' && !previewMarkup()))
+                <pre class="p-3 overflow-x-auto font-mono text-xs whitespace-pre-wrap">{{ result() }}</pre>
+              @endif
             </article>
           @endif
 
