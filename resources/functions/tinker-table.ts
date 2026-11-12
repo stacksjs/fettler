@@ -108,3 +108,32 @@ export function viewRows(table: ResultTable, query: string, sort: { column: numb
   }
   return rows
 }
+
+/** A cell as the grid wants it: a scalar as itself so the column sorts by type, anything nested as its summary. */
+function cellValue(value: Described | undefined): unknown {
+  if (!value || value.t === 'undefined')
+    return undefined
+  if (value.t === 'null')
+    return null
+  if (value.t === 'string' || value.t === 'number' || value.t === 'boolean')
+    return value.v
+  return cellText(value)
+}
+
+export interface ResultGrid {
+  columns: Array<{ key: string, label: string }>
+  rows: Array<Record<string, unknown>>
+  more: number
+}
+
+/** The same table, as records for a data grid. */
+export function gridOf(value: Described | null | undefined): ResultGrid | null {
+  const table = tableOf(value)
+  if (!table || !value)
+    return null
+  const rows = (value.items as Described[]).map((item) => {
+    const byKey = new Map(fieldsOf(item)!)
+    return Object.fromEntries(table.columns.map(column => [column, cellValue(byKey.get(column))]))
+  })
+  return { columns: table.columns.map(column => ({ key: column, label: column })), rows, more: table.more }
+}

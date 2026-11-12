@@ -1,6 +1,8 @@
 <script client>
 import { fuzzyFilter } from '../functions/fuzzy'
-import { tableOf, tableToCsv, tableToJson, viewRows } from '../functions/tinker-table'
+import { componentApi } from '@stacksjs/components/component-api'
+import { modelsIn, neighbourhood } from '../functions/relation-graph'
+import { gridOf } from '../functions/tinker-table'
 import { renderTinkerValue } from '../functions/tinker-value'
 
 const code = state('const numbers = [1, 2, 3]\nnumbers.map(n => n * 2)\n')
@@ -335,32 +337,47 @@ const mcpConfig = derived(() => JSON.stringify({ mcpServers: { fettler: { type: 
 
 const lastValue = state(null)
 const resultView = state('text')
-const tableQuery = state('')
-const tableSort = state(null)
-const copied = state('')
 
-const table = derived(() => tableOf(lastValue()))
-const shownRows = derived(() => table() ? viewRows(table(), tableQuery(), tableSort()) : [])
+// A scalar reads best as text. Anything with parts gets the inspector.
+const SCALARS = ['string', 'number', 'boolean', 'bigint', 'null', 'undefined', 'date', 'url', 'regexp', 'symbol']
+const inspectable = derived(() => Boolean(lastValue()) && !SCALARS.includes(lastValue().t) && lastValue().t !== 'html')
+const grid = derived(() => gridOf(lastValue()))
 const previewMarkup = derived(() => lastValue() && lastValue().t === 'html' ? lastValue().html : '')
 
-function sortBy(column) {
-  const current = tableSort()
-  if (current && current.column === column) tableSort.set(current.descending ? null : { column, descending: true })
-  else tableSort.set({ column, descending: false })
+// The relation graph is drawn from the session's own list of models, asked for once per connection.
+const modelList = state(null)
+const resultModels = derived(() => modelsIn(lastValue()))
+const relations = derived(() => modelList() && resultModels().length ? neighbourhood(modelList(), resultModels()) : { nodes: [], edges: [] })
+
+async function loadModels() {
+  if (modelList()) return
+  const response = await fetch('/__fettler/models')
+  modelList.set(response.ok ? (await response.json()).models || [] : [])
 }
 
-function sortMark(column) {
-  const current = tableSort()
-  return current && current.column === column ? (current.descending ? ' v' : ' ^') : ''
+function showGraph() {
+  resultView.set('graph')
+  void loadModels()
 }
 
-async function copyTable(format) {
-  if (!table()) return
-  const view = { ...table(), rows: shownRows() }
-  await globalThis.navigator.clipboard.writeText(format === 'csv' ? tableToCsv(view) : tableToJson(view))
-  copied.set(format === 'csv' ? 'Copied as CSV' : 'Copied as JSON')
-  setTimeout(() => copied.set(''), 1500)
+function expandRelations(detail) {
+  if (!detail || !detail.node || !modelList()) return
+  const more = neighbourhood(modelList(), [detail.node.id])
+  const graph = componentApi('fettler-relations')
+  graph.addNeighbours(detail.node.id, more.nodes.filter(node => node.id !== detail.node.id), more.edges)
+  graph.updateNode(detail.node.id, { expandable: false })
 }
+
+// A node in the inspector that is a list of records or a page opens in the view made for it.
+function openNode(detail) {
+  if (!detail) return
+  if (detail.as === 'table' && grid()) resultView.set('table')
+  else if (detail.as === 'preview' && previewMarkup()) resultView.set('preview')
+  else if (detail.as === 'graph' && resultModels().length) showGraph()
+}
+
+const VIEW_ON = 'px-1.5 rounded bg-neutral-200 dark:bg-neutral-800 text-neutral-900 dark:text-neutral-100'
+const VIEW_OFF = 'px-1.5 rounded'
 
 const tabs = state([{ id: 't1', title: 'Untitled', code: code() }])
 const activeTab = state('t1')
@@ -368,7 +385,9 @@ const ui = state({ theme: 'system', fontSize: 13 })
 let saveTimer = 0
 let tabCounter = 1
 
-const themeClass = derived(() => ui().theme === 'dark' ? 'dark' : ui().theme === 'light' ? 'light' : '')
+// "System" follows the machine: the dark variants are class based, so the class is set from the media query.
+const systemDark = useMediaQuery('(prefers-color-scheme: dark)')
+const themeClass = derived(() => ui().theme === 'dark' || (ui().theme !== 'light' && systemDark()) ? 'dark' : 'light')
 const editorTheme = derived(() => ui().theme === 'system' ? undefined : ui().theme)
 const editorStyle = derived(() => `--stx-code-font-size: ${ui().fontSize}px; --stx-code-line-height: ${Math.round(ui().fontSize * 1.55)}px`)
 
@@ -619,6 +638,7 @@ async function connect(target) {
     const body = await response.json()
     if (!response.ok) throw new Error(body.error || 'Could not connect.')
     connection.set(body.connection)
+    modelList.set(null)
     scheduleCheck()
     const warnings = body.session?.warnings || []
     notice.set(warnings.length ? warnings.join(' ') : '')
@@ -724,9 +744,7 @@ function take(frame) {
     duration.set(`${frame.durationMs} ms`)
     lastValue.set(frame.value)
     // Open on the view that suits the value: a page for markup, a table for a list of records.
-    resultView.set(frame.value.t === 'html' ? 'preview' : tableOf(frame.value) ? 'table' : 'text')
-    tableQuery.set('')
-    tableSort.set(null)
+    resultView.set(frame.value.t === 'html' ? 'preview' : gridOf(frame.value) ? 'table' : SCALARS.includes(frame.value.t) ? 'text' : 'tree')
   }
   else if (frame.type === 'error') { failure.set(renderTinkerValue(frame.error)); duration.set(`${frame.durationMs} ms`) }
   else if (frame.type === 'agent-error') failure.set(frame.message)
@@ -846,7 +864,8 @@ void loadLicense()
     <title>Fettler</title>
   </head>
   <body class="overflow-hidden h-screen antialiased text-neutral-900 dark:text-neutral-100 bg-neutral-50 dark:bg-neutral-950">
-    <div :class="themeClass()" class="flex flex-col h-screen text-neutral-900 dark:text-neutral-100 bg-neutral-50 dark:bg-neutral-950" data-fettler-app>
+    <div :class="themeClass()" data-fettler-theme>
+    <div class="flex flex-col h-screen text-neutral-900 dark:text-neutral-100 bg-neutral-50 dark:bg-neutral-950" data-fettler-app>
       <header class="flex gap-3 items-center shrink-0 px-3 h-11 border-b border-neutral-200 dark:border-neutral-800">
         <span class="font-medium text-sm" data-fettler-target>{{ targetLabel() }}</span>
         @if(whereLabel())
@@ -1021,53 +1040,54 @@ void loadLicense()
             <article class="bg-white dark:bg-neutral-900 border border-neutral-200 rounded-lg dark:border-neutral-800" data-fettler-result>
               <h2 class="flex gap-2 items-center px-3 py-1.5 font-medium text-[11px] text-neutral-500 border-b border-neutral-200 dark:border-neutral-800">
                 <span>Result</span>
-                @if(table())
-                  <button type="button" :class="resultView() === 'table' ? 'px-1.5 rounded bg-neutral-200 dark:bg-neutral-800 text-neutral-900 dark:text-neutral-100' : 'px-1.5 rounded'" @click="resultView.set('table')" data-fettler-view-table>Table</button>
+                @if(inspectable())
+                  <button type="button" :class="resultView() === 'tree' ? VIEW_ON : VIEW_OFF" @click="resultView.set('tree')" data-fettler-view-tree>Inspect</button>
+                @endif
+                @if(grid())
+                  <button type="button" :class="resultView() === 'table' ? VIEW_ON : VIEW_OFF" @click="resultView.set('table')" data-fettler-view-table>Table</button>
+                @endif
+                @if(resultModels().length)
+                  <button type="button" :class="resultView() === 'graph' ? VIEW_ON : VIEW_OFF" @click="showGraph()" data-fettler-view-graph>Relations</button>
                 @endif
                 @if(previewMarkup())
-                  <button type="button" :class="resultView() === 'preview' ? 'px-1.5 rounded bg-neutral-200 dark:bg-neutral-800 text-neutral-900 dark:text-neutral-100' : 'px-1.5 rounded'" @click="resultView.set('preview')" data-fettler-view-preview>Preview</button>
+                  <button type="button" :class="resultView() === 'preview' ? VIEW_ON : VIEW_OFF" @click="resultView.set('preview')" data-fettler-view-preview>Preview</button>
                 @endif
-                @if(table() || previewMarkup())
-                  <button type="button" :class="resultView() === 'text' ? 'px-1.5 rounded bg-neutral-200 dark:bg-neutral-800 text-neutral-900 dark:text-neutral-100' : 'px-1.5 rounded'" @click="resultView.set('text')">Text</button>
-                @endif
+                <button type="button" :class="resultView() === 'text' ? VIEW_ON : VIEW_OFF" @click="resultView.set('text')" data-fettler-view-text>Text</button>
                 <span class="ml-auto font-mono">{{ duration() }}</span>
               </h2>
 
-              @if(resultView() === 'table' && table())
-                <div class="flex gap-2 items-center px-3 py-1.5 border-b border-neutral-200 dark:border-neutral-800">
-                  <input type="text" :value="tableQuery()" @input="tableQuery.set($event.target.value)" placeholder="Search rows" aria-label="Search rows" class="px-2 h-6 w-48 text-xs bg-white dark:bg-neutral-950 border border-neutral-200 rounded dark:border-neutral-800 focus:outline-none">
-                  <span class="text-[11px] text-neutral-400">{{ shownRows().length }} of {{ table().rows.length }} rows{{ table().more ? `, ${table().more} more not sent` : '' }}</span>
-                  <span class="ml-auto text-[11px] text-neutral-400" role="status">{{ copied() }}</span>
-                  <button type="button" class="px-2 h-6 text-[11px] border border-neutral-200 rounded dark:border-neutral-800" @click="copyTable('csv')">Copy CSV</button>
-                  <button type="button" class="px-2 h-6 text-[11px] border border-neutral-200 rounded dark:border-neutral-800" @click="copyTable('json')">Copy JSON</button>
+              @if(resultView() === 'tree' && inspectable())
+                <div data-fettler-tree>
+                  <JsonTree label="Result" height="60vh" depth="2" :tinker="lastValue()" @open="openNode($event)" />
                 </div>
-                <div class="overflow-auto max-h-[60vh]" data-fettler-table>
-                  <table class="min-w-full text-xs">
-                    <thead class="sticky top-0 bg-neutral-100 dark:bg-neutral-800">
-                      <tr>
-                        @foreach(table().columns as column, index)
-                          <th scope="col" class="px-3 py-1.5 font-medium text-left whitespace-nowrap cursor-default select-none" @click="sortBy(index)">{{ column }}{{ sortMark(index) }}</th>
-                        @endforeach
-                      </tr>
-                    </thead>
-                    <tbody class="font-mono">
-                      @foreach(shownRows() as row)
-                        <tr class="border-neutral-200 border-t dark:border-neutral-800">
-                          @foreach(row as cell)
-                            <td class="px-3 py-1 max-w-xs truncate whitespace-nowrap">{{ cell }}</td>
-                          @endforeach
-                        </tr>
-                      @endforeach
-                    </tbody>
-                  </table>
+              @endif
+
+              @if(resultView() === 'table' && grid())
+                <div data-fettler-table>
+                  <DataGrid label="Result rows" fileName="fettler-result" height="60vh" :rows="grid().rows" :columns="grid().columns" />
+                  @if(grid().more)
+                    <p class="px-3 py-1.5 text-[11px] text-neutral-400 border-t border-neutral-200 dark:border-neutral-800">{{ grid().more }} more rows were not sent.</p>
+                  @endif
+                </div>
+              @endif
+
+              @if(resultView() === 'graph' && resultModels().length)
+                <div data-fettler-graph>
+                  @if(relations().nodes.length)
+                    <GraphView id="fettler-relations" label="Model relations" height="60vh" :nodes="relations().nodes" :edges="relations().edges" @expand="expandRelations($event)" />
+                  @else
+                    <p class="p-3 text-neutral-500 text-xs dark:text-neutral-400">{{ modelList() ? 'This session lists no relations for that model.' : 'Reading the models...' }}</p>
+                  @endif
                 </div>
               @endif
 
               @if(resultView() === 'preview' && previewMarkup())
-                <iframe sandbox="" :srcdoc="previewMarkup()" title="Rendered preview" class="h-[70vh] w-full bg-white rounded-b-lg" data-fettler-preview></iframe>
+                <div data-fettler-preview>
+                  <PreviewFrame title="Rendered preview" height="70vh" :html="previewMarkup()" />
+                </div>
               @endif
 
-              @if(resultView() === 'text' || (resultView() === 'table' && !table()) || (resultView() === 'preview' && !previewMarkup()))
+              @if(resultView() === 'text' || (resultView() === 'tree' && !inspectable()) || (resultView() === 'table' && !grid()) || (resultView() === 'graph' && !resultModels().length) || (resultView() === 'preview' && !previewMarkup()))
                 <pre class="overflow-x-auto p-3 font-mono text-xs whitespace-pre-wrap">{{ result() }}</pre>
               @endif
             </article>
@@ -1309,6 +1329,7 @@ void loadLicense()
           </div>
         </div>
       @endif
+    </div>
     </div>
   </body>
 </html>
