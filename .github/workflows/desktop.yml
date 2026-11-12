@@ -116,7 +116,7 @@ jobs:
         # The Craft release the project's lockfile resolves.
         run: |
           mkdir packager && cp bin/package-desktop.ts packager/
-          cd packager && bun init -y >/dev/null && bun add craft-native@0.0.499
+          cd packager && bun init -y >/dev/null && bun add craft-native@0.0.500
 
       - name: Make the MSI
         shell: bash
