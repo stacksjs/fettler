@@ -32,13 +32,23 @@ const isReleased = released
         <h2 class="mt-5 font-semibold text-ink text-xl tracking-tight">{{ platform.name }}</h2>
         @if(platform.ready)
           <a href="{{ platform.url }}" class="mt-5 btn btn-ghost">Download for {{ platform.name }}</a>
+          @if(platform.note)
+            <p class="mt-4 leading-relaxed text-muted text-sm">{{ platform.note }}</p>
+          @endif
+          @if(platform.alternates)
+            <p class="mt-2 text-muted text-sm">Also as
+              @foreach(platform.alternates as alternate)
+                <a href="{{ alternate.url }}" class="link">{{ alternate.label }}</a>
+              @endforeach
+            </p>
+          @endif
         @else
           <p class="mt-2 text-muted">Beta in development</p>
         @endif
       </li>
     @endforeach
   </ul>
-  <p class="mt-6 max-w-[62ch] leading-relaxed text-muted reveal">The <a href="/changelog" class="link">changelog</a> records what exists today and will announce the first build.</p>
+  <p class="mt-6 max-w-[62ch] leading-relaxed text-muted reveal">The <a href="/changelog" class="link">changelog</a> records what each build changed.</p>
 </section>
 
 <Faq :items="downloadFaqs" heading="About the beta" />

@@ -25,7 +25,7 @@ function runSnippet() {
     <div>
       <p class="flex gap-2 items-center font-medium text-accent-ink text-sm rise" style="--i: 0">
         <span class="size-4 i-hugeicons-wrench-01" aria-hidden="true"></span>
-        Early beta. macOS today, Windows and Linux next.
+        Early beta for macOS, Windows and Linux.
       </p>
       <h1 class="mt-5 font-semibold leading-[1.04] text-4xl text-ink tracking-tighter md:text-5xl xl:text-6xl hero-title rise" style="--i: 1">Tinker with your real Stacks app.</h1>
       <p class="mt-6 max-w-[46ch] leading-relaxed text-lg text-muted rise" style="--i: 2">A desktop app that runs TypeScript against your models, actions, jobs and config, local or remote, with typed results.</p>

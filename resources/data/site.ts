@@ -41,6 +41,10 @@ export interface Platform {
   icon: string
   /** The build's address once there is one. Empty means not released. */
   url: string
+  /** One plain sentence about this build: what it is, and anything a person should know before running it. */
+  note?: string
+  /** Other packages of the same build. */
+  alternates?: { label: string, url: string }[]
 }
 
 /**
@@ -51,9 +55,9 @@ export const release = {
   /** A 0.x version string once a build exists. */
   version: '0.1.1',
   platforms: [
-    { id: 'macos', name: 'macOS', icon: 'i-hugeicons-apple', url: '/api/download/macos' },
-    { id: 'windows', name: 'Windows', icon: 'i-hugeicons-windows-new', url: '' },
-    { id: 'linux', name: 'Linux', icon: 'i-hugeicons-computer-terminal-02', url: '' },
+    { id: 'macos', name: 'macOS', icon: 'i-hugeicons-apple', url: '/api/download/macos', note: 'Apple silicon. Signed and notarized.' },
+    { id: 'windows', name: 'Windows', icon: 'i-hugeicons-windows-new', url: '/api/download/windows', note: '64-bit installer. Not code signed yet, so Windows will ask before running it. New and lightly tested.' },
+    { id: 'linux', name: 'Linux', icon: 'i-hugeicons-computer-terminal-02', url: '/api/download/linux', note: 'x86-64 AppImage, which updates itself. New and lightly tested.', alternates: [{ label: '.deb', url: '/api/download/linux?format=deb' }, { label: '.rpm', url: '/api/download/linux?format=rpm' }] },
   ] as Platform[],
 }
 

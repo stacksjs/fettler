@@ -21,7 +21,7 @@ const updated = 'November 11, 2026'
 
     <h2>The app</h2>
     <ul>
-      <li>The macOS beta has no analytics and no crash reporting.</li>
+      <li>The beta has no analytics and no crash reporting.</li>
       <li>It asks this site whether a newer version exists. That request carries the app's version, its release channel, the operating system and the processor type, and nothing about you, your projects or your code.</li>
       <li>TinkerBelle runs your code against your own app, on your machine or on a target you connect it to. Running a snippet on a remote target writes nothing on that server.</li>
       <li>AI features use an API key that you bring from your own provider. What you send to that provider is covered by your agreement with them.</li>
