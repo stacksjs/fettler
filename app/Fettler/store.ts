@@ -36,6 +36,10 @@ export interface RecentConnection {
   kind: string
   label: string
   path: string | null
+  /** Where a remote one runs. */
+  where: string | null
+  /** Everything needed to open it again. Never a secret: keys stay in the SSH agent. */
+  spec: unknown
   lastUsedAt: string
 }
 
@@ -83,6 +87,15 @@ export class Store {
         value TEXT NOT NULL
       );
     `)
+    this.migrate()
+  }
+
+  private migrate(): void {
+    const columns = (this.db.query('PRAGMA table_info(connections)').all() as Array<{ name: string }>).map(column => column.name)
+    if (!columns.includes('spec'))
+      this.db.exec('ALTER TABLE connections ADD COLUMN spec TEXT')
+    if (!columns.includes('location'))
+      this.db.exec('ALTER TABLE connections ADD COLUMN location TEXT')
   }
 
   /** Record a run. Running the same code again moves it to the top instead of repeating it. */
@@ -168,22 +181,33 @@ export class Store {
     this.db.query('DELETE FROM snippets WHERE id = ?').run(id)
   }
 
-  touchConnection(connection: { key: string, kind: string, label: string, path?: string | null }): void {
+  touchConnection(connection: { key: string, kind: string, label: string, path?: string | null, where?: string | null, spec?: unknown }): void {
     this.db.query(`
-      INSERT INTO connections (key, kind, label, path, last_used_at) VALUES (?, ?, ?, ?, ?)
-      ON CONFLICT (key) DO UPDATE SET label = excluded.label, path = excluded.path, last_used_at = excluded.last_used_at
-    `).run(connection.key, connection.kind, connection.label, connection.path ?? null, new Date().toISOString())
+      INSERT INTO connections (key, kind, label, path, location, spec, last_used_at) VALUES (?, ?, ?, ?, ?, ?, ?)
+      ON CONFLICT (key) DO UPDATE SET label = excluded.label, path = excluded.path, location = excluded.location, spec = excluded.spec, last_used_at = excluded.last_used_at
+    `).run(connection.key, connection.kind, connection.label, connection.path ?? null, connection.where ?? null, connection.spec === undefined ? null : JSON.stringify(connection.spec), new Date().toISOString())
   }
 
   recentConnections(limit = 12): RecentConnection[] {
-    const rows = this.db.query('SELECT key, kind, label, path, last_used_at FROM connections ORDER BY last_used_at DESC LIMIT ?').all(limit) as Array<Record<string, unknown>>
-    return rows.map(row => ({
-      key: row.key as string,
-      kind: row.kind as string,
-      label: row.label as string,
-      path: (row.path as string | null) ?? null,
-      lastUsedAt: row.last_used_at as string,
-    }))
+    const rows = this.db.query('SELECT key, kind, label, path, location, spec, last_used_at FROM connections ORDER BY last_used_at DESC LIMIT ?').all(limit) as Array<Record<string, unknown>>
+    return rows.map((row) => {
+      let spec: unknown = null
+      try {
+        spec = row.spec ? JSON.parse(row.spec as string) : null
+      }
+      catch {
+        spec = null
+      }
+      return {
+        key: row.key as string,
+        kind: row.kind as string,
+        label: row.label as string,
+        path: (row.path as string | null) ?? null,
+        where: (row.location as string | null) ?? null,
+        spec,
+        lastUsedAt: row.last_used_at as string,
+      }
+    })
   }
 
   forgetConnection(key: string): void {

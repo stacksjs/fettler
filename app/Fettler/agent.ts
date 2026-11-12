@@ -4,7 +4,8 @@ import process from 'node:process'
 import { findLanguageServer, LanguageService } from './language'
 import { Runner } from './runner'
 import { Store } from './store'
-import { commandFor, ConnectionError, sandboxDirectory, summarize } from './targets'
+import { containerWorkdir, listContainers, listKubeContexts, listKubeNamespaces, listKubePods } from './remote'
+import { commandFor, ConnectionError, sandboxDirectory, summarize, validate } from './targets'
 
 /**
  * Fettler's local agent: the one process the window talks to.
@@ -55,15 +56,19 @@ export async function startAgent(options: { port?: number, quiet?: boolean, stor
   let runner: Runner | undefined
   let connection: Connection | undefined
   let language: LanguageService | undefined
+  let environmentOf = ''
 
   // Types come from the project the session is in; the sandbox has none of its own.
   function startLanguage(target: Connection): LanguageService | undefined {
+    // A remote project's types are on the remote. Without a local checkout there is nothing to ask.
+    if (target.kind !== 'local' && target.kind !== 'sandbox')
+      return undefined
     const project = target.kind === 'local' ? target.path : sandboxDirectory()
     const binary = findLanguageServer(project, root)
     return binary ? new LanguageService(project, binary, target.kind === 'local' ? 'app/__fettler_scratch__.ts' : 'scratch.ts') : undefined
   }
 
-  const keyOf = (target: Connection): string => target.kind === 'sandbox' ? 'sandbox' : `local:${summarize(target).path}`
+  const keyOf = (target: Connection): string => summarize(target).key
 
   const authorized = (request: Request): boolean => {
     const cookies = request.headers.get('cookie') ?? ''
@@ -73,7 +78,7 @@ export async function startAgent(options: { port?: number, quiet?: boolean, stor
   async function api(request: Request, path: string): Promise<Response> {
     if (path === '/__fettler/state' && request.method === 'GET') {
       return json({
-        connection: connection ? summarize(connection) : null,
+        connection: connection ? { ...summarize(connection), environment: environmentOf } : null,
         running: Boolean(runner?.running),
         platform: process.platform,
         recent: store.recentConnections(),
@@ -82,19 +87,27 @@ export async function startAgent(options: { port?: number, quiet?: boolean, stor
 
     if (path === '/__fettler/connect' && request.method === 'POST') {
       const body = await request.json().catch(() => null) as Connection | null
-      if (!body || (body.kind !== 'sandbox' && body.kind !== 'local') || (body.kind === 'local' && typeof body.path !== 'string'))
-        return json({ error: 'Name a sandbox or a local project path.' }, 400)
+      if (!body || !['sandbox', 'local', 'ssh', 'docker', 'kube'].includes(body.kind) || (body.kind === 'local' && typeof body.path !== 'string'))
+        return json({ error: 'Name a sandbox, a local project, or a remote target.' }, 400)
       try {
-        const next = new Runner(commandFor(body))
+        const next = new Runner(await commandFor(body))
         const info = await next.ready
+        // Ask the session itself where it is: the app's own word for its environment.
+        let environment = ''
+        await next.run('(globalThis.config?.app?.env ?? process.env.APP_ENV ?? process.env.NODE_ENV ?? "")', (frame) => {
+          const seen = frame as { type?: string, value?: { t?: string, v?: unknown } }
+          if (seen.type === 'result' && seen.value?.t === 'string')
+            environment = String(seen.value.v)
+        }).catch(() => {})
         runner?.stop()
         runner = next
         connection = body
         language?.stop()
         language = startLanguage(body)
         const summary = summarize(body)
-        store.touchConnection({ key: keyOf(body), kind: summary.kind, label: summary.label, path: summary.path })
-        return json({ connection: summarize(body), session: info })
+        store.touchConnection({ key: summary.key, kind: summary.kind, label: summary.label, path: summary.path, where: summary.where, spec: body })
+        environmentOf = environment
+        return json({ connection: { ...summarize(body), environment }, session: info })
       }
       catch (error) {
         return json({ error: error instanceof Error ? error.message : String(error) }, error instanceof ConnectionError ? 422 : 502)
@@ -154,6 +167,34 @@ export async function startAgent(options: { port?: number, quiet?: boolean, stor
       }
       catch (error) {
         return json({ available: false, error: error instanceof Error ? error.message : String(error), items: [], diagnostics: [], hover: null })
+      }
+    }
+
+    if (path === '/__fettler/discover' && request.method === 'POST') {
+      const body = await request.json().catch(() => null) as { what?: string, ssh?: { host: string, user?: string, port?: number, identityFile?: string, jump?: string }, context?: string, namespace?: string, kubeconfig?: string, container?: string } | null
+      if (!body)
+        return json({ error: 'Say what to list.' }, 400)
+      try {
+        if (body.ssh)
+          validate({ kind: 'ssh', directory: '/', ...body.ssh })
+        if (body.what === 'containers')
+          return json({ containers: await listContainers(body.ssh) })
+        if (body.what === 'workdir' && body.container) {
+          validate({ kind: 'docker', directory: '/', container: body.container })
+          return json({ workdir: await containerWorkdir(body.container, body.ssh) ?? null })
+        }
+        const locator = { context: body.context, namespace: body.namespace, kubeconfig: body.kubeconfig }
+        validate({ kind: 'kube', directory: '/', pod: 'x', ...locator })
+        if (body.what === 'contexts')
+          return json({ contexts: await listKubeContexts(body.kubeconfig, body.ssh) })
+        if (body.what === 'namespaces')
+          return json({ namespaces: await listKubeNamespaces(locator, body.ssh) })
+        if (body.what === 'pods')
+          return json({ pods: await listKubePods(locator, body.ssh) })
+        return json({ error: 'Unknown list.' }, 400)
+      }
+      catch (error) {
+        return json({ error: error instanceof Error ? error.message : String(error) }, error instanceof ConnectionError ? 422 : 502)
       }
     }
 

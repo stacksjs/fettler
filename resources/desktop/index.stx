@@ -27,6 +27,16 @@ const editorRef = ref()
 let checkTimer = 0
 let checkSerial = 0
 
+const connectOpen = state(false)
+const connectKind = state('ssh')
+const form = state({ host: '', user: '', port: '', identityFile: '', jump: '', directory: '', envFile: '.env', container: '', pod: '', namespace: '', context: '' })
+const found = state([])
+const finding = state(false)
+const confirming = state('')
+
+const isProduction = derived(() => /prod|live/i.test((connection() && connection().environment) || ''))
+const environmentLabel = derived(() => (connection() && connection().environment) || '')
+const whereLabel = derived(() => (connection() && connection().where) || '')
 const connected = derived(() => connection() !== null)
 const targetLabel = derived(() => connection() ? connection().label : 'Not connected')
 
@@ -48,11 +58,13 @@ const paletteItems = derived(() => {
   const items = [
     { kind: 'action', id: 'run', title: 'Run', hint: 'Cmd+Enter' },
     { kind: 'action', id: 'sandbox', title: 'Open the sandbox', hint: '' },
+    { kind: 'action', id: 'remote', title: 'Connect to a server, container or pod', hint: '' },
     { kind: 'action', id: 'save', title: 'Save as snippet', hint: firstLine(code()) },
     { kind: 'action', id: 'clear-history', title: 'Clear history for this connection', hint: '' },
   ]
   for (const item of recent()) {
     if (item.kind === 'local') items.push({ kind: 'project', id: item.key, title: `Open ${item.label}`, hint: item.path, path: item.path })
+    else if (item.spec && item.kind !== 'sandbox') items.push({ kind: item.kind, id: item.key, title: `Open ${item.label}`, hint: item.where || '', spec: item.spec })
   }
   for (const item of snippets()) items.push({ kind: 'snippet', id: `s${item.id}`, title: item.title, hint: firstLine(item.code), code: item.code })
   for (const item of historyEntries()) items.push({ kind: 'history', id: `h${item.id}`, title: firstLine(item.code), hint: item.ok ? '' : 'failed', code: item.code })
@@ -87,6 +99,12 @@ async function choose(item) {
   else if (item.kind === 'project') {
     projectPath.set(item.path)
     await connect({ kind: 'local', path: item.path })
+  }
+  else if (item.spec) {
+    await connect(item.spec)
+  }
+  else if (item.id === 'remote') {
+    connectOpen.set(true)
   }
   else if (item.id === 'run') {
     runAll()
@@ -146,6 +164,80 @@ async function connect(target) {
   finally {
     connecting.set(false)
   }
+}
+
+function setField(name, value) {
+  form.set({ ...form(), [name]: value })
+}
+
+function sshPart() {
+  const f = form()
+  if (!f.host.trim()) return undefined
+  return {
+    host: f.host.trim(),
+    ...(f.user.trim() ? { user: f.user.trim() } : {}),
+    ...(f.port.trim() ? { port: Number(f.port) } : {}),
+    ...(f.identityFile.trim() ? { identityFile: f.identityFile.trim() } : {}),
+    ...(f.jump.trim() ? { jump: f.jump.trim() } : {}),
+  }
+}
+
+function remoteTarget() {
+  const f = form()
+  const project = { directory: f.directory.trim(), ...(f.envFile.trim() ? { envFile: f.envFile.trim() } : {}) }
+  const pod = f.pod.trim()
+    ? { pod: f.pod.trim(), ...(f.namespace.trim() ? { namespace: f.namespace.trim() } : {}), ...(f.context.trim() ? { context: f.context.trim() } : {}), ...(f.container.trim() ? { container: f.container.trim() } : {}) }
+    : undefined
+  if (connectKind() === 'ssh') {
+    return { kind: 'ssh', ...sshPart(), ...project, ...(pod ? { pod } : f.container.trim() ? { container: f.container.trim() } : {}) }
+  }
+  if (connectKind() === 'docker') return { kind: 'docker', container: f.container.trim(), ...project }
+  return { kind: 'kube', ...pod, ...project }
+}
+
+// List what is running on the target, so a container or a pod is picked, not typed.
+async function discover(what) {
+  finding.set(true)
+  found.set([])
+  notice.set('')
+  try {
+    const f = form()
+    const response = await fetch('/__fettler/discover', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ what, ssh: connectKind() === 'ssh' ? sshPart() : undefined, context: f.context.trim() || undefined, namespace: f.namespace.trim() || undefined }),
+    })
+    const body = await response.json()
+    if (!response.ok) throw new Error(body.error || 'Nothing could be listed.')
+    if (what === 'containers') found.set(body.containers.map(item => ({ field: 'container', value: item.name, hint: `${item.image} (${item.status})` })))
+    else if (what === 'pods') found.set(body.pods.map(item => ({ field: 'pod', value: item.name, hint: item.phase })))
+    else if (what === 'contexts') found.set(body.contexts.map(item => ({ field: 'context', value: item, hint: '' })))
+    else if (what === 'namespaces') found.set(body.namespaces.map(item => ({ field: 'namespace', value: item, hint: '' })))
+  }
+  catch (cause) {
+    notice.set(cause instanceof Error ? cause.message : 'Nothing could be listed.')
+  }
+  finally {
+    finding.set(false)
+  }
+}
+
+async function pick(item) {
+  setField(item.field, item.value)
+  found.set([])
+  if (item.field !== 'container' || form().directory.trim()) return
+  const response = await fetch('/__fettler/discover', {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({ what: 'workdir', container: item.value, ssh: connectKind() === 'ssh' ? sshPart() : undefined }),
+  })
+  const body = await response.json().catch(() => ({}))
+  if (body.workdir) setField('directory', body.workdir)
+}
+
+async function connectRemote() {
+  await connect(remoteTarget())
+  if (connected() && connection().kind !== 'sandbox' && connection().kind !== 'local') connectOpen.set(false)
 }
 
 function connectProject() {
@@ -240,12 +332,22 @@ function scheduleCheck() {
   }, 350)
 }
 
+// On production a run is asked for twice: once to say what it will touch, once to do it.
+function guarded(source) {
+  if (!isProduction() || confirming() === source) {
+    confirming.set('')
+    void run(source)
+    return
+  }
+  confirming.set(source)
+}
+
 function runAll(detail) {
-  void run(detail && typeof detail.value === 'string' ? detail.value : code())
+  guarded(detail && typeof detail.value === 'string' ? detail.value : code())
 }
 
 function runSelection(detail) {
-  if (detail && detail.text) void run(detail.text)
+  if (detail && detail.text) guarded(detail.text)
 }
 
 void loadState()
@@ -263,6 +365,12 @@ void loadState()
     <div class="flex flex-col h-screen" data-fettler-app @keydown="appKey($event)">
       <header class="flex gap-3 items-center px-3 h-11 border-b border-neutral-200 dark:border-neutral-800 shrink-0">
         <span class="font-medium text-sm" data-fettler-target>{{ targetLabel() }}</span>
+        @if(whereLabel())
+          <span class="font-mono text-[11px] text-neutral-500" data-fettler-where>{{ whereLabel() }}</span>
+        @endif
+        @if(environmentLabel())
+          <span :class="isProduction() ? 'px-1.5 py-0.5 font-medium text-[10px] text-white uppercase tracking-wide bg-red-600 rounded' : 'px-1.5 py-0.5 font-medium text-[10px] text-neutral-600 uppercase tracking-wide dark:text-neutral-300 bg-neutral-200 dark:bg-neutral-800 rounded'" data-fettler-environment>{{ environmentLabel() }}</span>
+        @endif
         <input
           type="text"
           :value="projectPath()"
@@ -275,12 +383,21 @@ void loadState()
         >
         <button type="button" class="px-2.5 h-7 text-xs bg-white dark:bg-neutral-900 hover:bg-neutral-100 dark:hover:bg-neutral-800 border border-neutral-200 dark:border-neutral-800 rounded-md disabled:opacity-50" :disabled="connecting()" @click="connectProject()" data-fettler-open>Open project</button>
         <button type="button" class="px-2.5 h-7 text-xs bg-white dark:bg-neutral-900 hover:bg-neutral-100 dark:hover:bg-neutral-800 border border-neutral-200 dark:border-neutral-800 rounded-md disabled:opacity-50" :disabled="connecting()" @click="connect({ kind: 'sandbox' })" data-fettler-sandbox>Sandbox</button>
+        <button type="button" class="px-2.5 h-7 text-xs bg-white dark:bg-neutral-900 hover:bg-neutral-100 dark:hover:bg-neutral-800 border border-neutral-200 dark:border-neutral-800 rounded-md" @click="connectOpen.set(true)" data-fettler-remote>Remote</button>
         <button type="button" class="px-2.5 h-7 text-neutral-500 text-xs bg-white dark:bg-neutral-900 hover:bg-neutral-100 dark:hover:bg-neutral-800 border border-neutral-200 dark:border-neutral-800 rounded-md" @click="openPalette()" aria-label="Open the command palette" data-fettler-palette-open>Cmd+K</button>
         <button type="button" class="px-3 h-7 font-medium text-white text-xs bg-neutral-900 dark:bg-neutral-100 dark:text-neutral-900 rounded-md disabled:opacity-40" :disabled="running() || !connected()" @click="runAll()" data-fettler-run>{{ running() ? 'Running' : 'Run' }}</button>
       </header>
 
       @if(notice())
         <p class="px-3 py-1.5 text-amber-800 text-xs dark:text-amber-300 bg-amber-50 dark:bg-amber-500/10 border-b border-amber-200 dark:border-amber-500/20" role="status" data-fettler-notice>{{ notice() }}</p>
+      @endif
+
+      @if(confirming())
+        <div class="flex gap-3 items-center px-3 py-2 text-red-900 text-xs dark:text-red-100 bg-red-50 dark:bg-red-500/15 border-b border-red-200 dark:border-red-500/30" role="alert" data-fettler-confirm>
+          <span class="flex-1">This will run on <strong>{{ environmentLabel() }}</strong> at {{ whereLabel() || targetLabel() }}. Anything it writes is written for real.</span>
+          <button type="button" class="px-2.5 h-6 text-xs bg-white dark:bg-neutral-900 border border-red-300 dark:border-red-500/40 rounded" @click="confirming.set('')">Cancel</button>
+          <button type="button" class="px-2.5 h-6 font-medium text-white text-xs bg-red-600 rounded" @click="guarded(confirming())" data-fettler-confirm-run>Run on {{ environmentLabel() }}</button>
+        </div>
       @endif
 
       <main class="flex-1 grid grid-cols-2 min-h-0">
@@ -339,6 +456,75 @@ void loadState()
           @endif
         </section>
       </main>
+
+      @if(connectOpen())
+        <div class="fixed inset-0 z-40 flex items-start justify-center pt-16 bg-black/30" @click.self="connectOpen.set(false)" data-fettler-connect>
+          <div class="w-full max-w-lg bg-white dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-700 rounded-xl shadow-2xl" role="dialog" aria-modal="true" aria-label="Connect to a remote target">
+            <div class="flex gap-1 p-2 border-b border-neutral-200 dark:border-neutral-800" role="tablist">
+              <button type="button" role="tab" :aria-selected="connectKind() === 'ssh' ? 'true' : 'false'" :class="connectKind() === 'ssh' ? 'px-3 h-7 text-xs font-medium bg-neutral-100 dark:bg-neutral-800 rounded-md' : 'px-3 h-7 text-xs text-neutral-500 rounded-md'" @click="connectKind.set('ssh'); found.set([])">SSH</button>
+              <button type="button" role="tab" :aria-selected="connectKind() === 'docker' ? 'true' : 'false'" :class="connectKind() === 'docker' ? 'px-3 h-7 text-xs font-medium bg-neutral-100 dark:bg-neutral-800 rounded-md' : 'px-3 h-7 text-xs text-neutral-500 rounded-md'" @click="connectKind.set('docker'); found.set([])">Docker</button>
+              <button type="button" role="tab" :aria-selected="connectKind() === 'kube' ? 'true' : 'false'" :class="connectKind() === 'kube' ? 'px-3 h-7 text-xs font-medium bg-neutral-100 dark:bg-neutral-800 rounded-md' : 'px-3 h-7 text-xs text-neutral-500 rounded-md'" @click="connectKind.set('kube'); found.set([])">Kubernetes</button>
+            </div>
+            <div class="grid gap-3 grid-cols-2 p-4">
+              @if(connectKind() === 'ssh')
+              <label class="flex flex-col gap-1 text-[11px] text-neutral-500">Host
+                <input type="text" :value="form().host" @input="setField('host', $event.target.value)" placeholder="box.example.com" autocomplete="off" spellcheck="false" class="px-2 h-8 font-mono text-neutral-900 text-xs dark:text-neutral-100 bg-white dark:bg-neutral-950 border border-neutral-200 dark:border-neutral-700 rounded-md focus:outline-none focus:border-neutral-400">
+              </label>
+              <label class="flex flex-col gap-1 text-[11px] text-neutral-500">User
+                <input type="text" :value="form().user" @input="setField('user', $event.target.value)" placeholder="root" autocomplete="off" spellcheck="false" class="px-2 h-8 font-mono text-neutral-900 text-xs dark:text-neutral-100 bg-white dark:bg-neutral-950 border border-neutral-200 dark:border-neutral-700 rounded-md focus:outline-none focus:border-neutral-400">
+              </label>
+              <label class="flex flex-col gap-1 text-[11px] text-neutral-500">Port
+                <input type="text" :value="form().port" @input="setField('port', $event.target.value)" placeholder="22" autocomplete="off" spellcheck="false" class="px-2 h-8 font-mono text-neutral-900 text-xs dark:text-neutral-100 bg-white dark:bg-neutral-950 border border-neutral-200 dark:border-neutral-700 rounded-md focus:outline-none focus:border-neutral-400">
+              </label>
+              <label class="flex flex-col gap-1 text-[11px] text-neutral-500">Jump host (optional)
+                <input type="text" :value="form().jump" @input="setField('jump', $event.target.value)" placeholder="me@bastion" autocomplete="off" spellcheck="false" class="px-2 h-8 font-mono text-neutral-900 text-xs dark:text-neutral-100 bg-white dark:bg-neutral-950 border border-neutral-200 dark:border-neutral-700 rounded-md focus:outline-none focus:border-neutral-400">
+              </label>
+              <label class="flex flex-col gap-1 text-[11px] text-neutral-500" style="grid-column: span 2">Identity file (optional)
+                <input type="text" :value="form().identityFile" @input="setField('identityFile', $event.target.value)" placeholder="/Users/me/.ssh/id_ed25519" autocomplete="off" spellcheck="false" class="px-2 h-8 font-mono text-neutral-900 text-xs dark:text-neutral-100 bg-white dark:bg-neutral-950 border border-neutral-200 dark:border-neutral-700 rounded-md focus:outline-none focus:border-neutral-400">
+              </label>
+              @endif
+              @if(connectKind() === 'kube')
+              <label class="flex flex-col gap-1 text-[11px] text-neutral-500">Context (optional)
+                <input type="text" :value="form().context" @input="setField('context', $event.target.value)" placeholder="current context" autocomplete="off" spellcheck="false" class="px-2 h-8 font-mono text-neutral-900 text-xs dark:text-neutral-100 bg-white dark:bg-neutral-950 border border-neutral-200 dark:border-neutral-700 rounded-md focus:outline-none focus:border-neutral-400">
+              </label>
+              <label class="flex flex-col gap-1 text-[11px] text-neutral-500">Namespace
+                <input type="text" :value="form().namespace" @input="setField('namespace', $event.target.value)" placeholder="default" autocomplete="off" spellcheck="false" class="px-2 h-8 font-mono text-neutral-900 text-xs dark:text-neutral-100 bg-white dark:bg-neutral-950 border border-neutral-200 dark:border-neutral-700 rounded-md focus:outline-none focus:border-neutral-400">
+              </label>
+              @endif
+              @if(connectKind() !== 'docker')
+              <label class="flex flex-col gap-1 text-[11px] text-neutral-500">Pod
+                <input type="text" :value="form().pod" @input="setField('pod', $event.target.value)" placeholder="api-0" autocomplete="off" spellcheck="false" class="px-2 h-8 font-mono text-neutral-900 text-xs dark:text-neutral-100 bg-white dark:bg-neutral-950 border border-neutral-200 dark:border-neutral-700 rounded-md focus:outline-none focus:border-neutral-400">
+              </label>
+              @endif
+              <label class="flex flex-col gap-1 text-[11px] text-neutral-500">Container
+                <input type="text" :value="form().container" @input="setField('container', $event.target.value)" placeholder="web-1" autocomplete="off" spellcheck="false" class="px-2 h-8 font-mono text-neutral-900 text-xs dark:text-neutral-100 bg-white dark:bg-neutral-950 border border-neutral-200 dark:border-neutral-700 rounded-md focus:outline-none focus:border-neutral-400">
+              </label>
+              <label class="flex flex-col gap-1 text-[11px] text-neutral-500" style="grid-column: span 2">Project directory on the target
+                <input type="text" :value="form().directory" @input="setField('directory', $event.target.value)" placeholder="/var/www/app/current" autocomplete="off" spellcheck="false" class="px-2 h-8 font-mono text-neutral-900 text-xs dark:text-neutral-100 bg-white dark:bg-neutral-950 border border-neutral-200 dark:border-neutral-700 rounded-md focus:outline-none focus:border-neutral-400">
+              </label>
+              <label class="flex flex-col gap-1 text-[11px] text-neutral-500">Env file to export (optional)
+                <input type="text" :value="form().envFile" @input="setField('envFile', $event.target.value)" placeholder=".env" autocomplete="off" spellcheck="false" class="px-2 h-8 font-mono text-neutral-900 text-xs dark:text-neutral-100 bg-white dark:bg-neutral-950 border border-neutral-200 dark:border-neutral-700 rounded-md focus:outline-none focus:border-neutral-400">
+              </label>
+              <div class="flex flex-wrap gap-2 items-end">
+                <button type="button" class="px-2.5 h-8 text-xs border border-neutral-200 dark:border-neutral-700 rounded-md disabled:opacity-50" :disabled="finding()" @click="discover('containers')">List containers</button>
+                <button type="button" class="px-2.5 h-8 text-xs border border-neutral-200 dark:border-neutral-700 rounded-md disabled:opacity-50" :disabled="finding()" @click="discover('pods')">List pods</button>
+              </div>
+            </div>
+            @if(found().length)
+              <ul class="mx-4 mb-3 max-h-40 overflow-y-auto border border-neutral-200 dark:border-neutral-700 rounded-md divide-neutral-200 divide-y dark:divide-neutral-800" data-fettler-found>
+                @foreach(found() as item)
+                  <li class="flex gap-3 px-3 py-1.5 font-mono text-xs cursor-default hover:bg-neutral-100 dark:hover:bg-neutral-800" @click="pick(item)"><span>{{ item.value }}</span><span class="ml-auto text-neutral-400 truncate">{{ item.hint }}</span></li>
+                @endforeach
+              </ul>
+            @endif
+            <p class="px-4 pb-3 text-[11px] text-neutral-500">Keys come from your SSH agent. Fettler never asks for a password and writes nothing on the target.</p>
+            <div class="flex gap-2 justify-end px-4 py-3 border-t border-neutral-200 dark:border-neutral-800">
+              <button type="button" class="px-3 h-8 text-xs border border-neutral-200 dark:border-neutral-700 rounded-md" @click="connectOpen.set(false)">Cancel</button>
+              <button type="button" class="px-3 h-8 font-medium text-white text-xs bg-neutral-900 dark:bg-neutral-100 dark:text-neutral-900 rounded-md disabled:opacity-50" :disabled="connecting()" @click="connectRemote()" data-fettler-connect-go>{{ connecting() ? 'Connecting' : 'Connect' }}</button>
+            </div>
+          </div>
+        </div>
+      @endif
 
       @if(paletteOpen())
         <div class="fixed inset-0 z-40 flex items-start justify-center pt-24 bg-black/30" @click.self="closePalette()" data-fettler-palette>
