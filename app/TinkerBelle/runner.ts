@@ -54,10 +54,8 @@ export class Runner {
       stderr: 'pipe',
     })
 
-    if (target.preamble) {
-      this.proc.stdin.write(target.preamble)
-      this.proc.stdin.flush()
-    }
+    if (target.preamble)
+      this.send(target.preamble)
 
     let resolveReady!: (info: TinkerSessionInfo) => void
     let rejectReady!: (error: Error) => void
@@ -78,6 +76,31 @@ export class Runner {
         handler.done(error)
       this.handlers.clear()
     })
+  }
+
+  /**
+   * Write to the session. False when it is no longer reading.
+   *
+   * A session that ends before it has read what it was sent (a directory that
+   * is not there, a host that refused) closes the pipe under the write, which
+   * fails with EPIPE. That is not the failure to report: the exit is, with what
+   * the session said on stderr, and `exited` reports it to `ready` and to every
+   * run in flight. Whether the write or the exit comes first is a race, so the
+   * write must not be the one that throws.
+   */
+  private send(data: string | Uint8Array): boolean {
+    try {
+      this.proc.stdin.write(data)
+      const flushed = this.proc.stdin.flush() as unknown
+      if (flushed && typeof (flushed as Promise<unknown>).catch === 'function')
+        void (flushed as Promise<unknown>).catch(() => {})
+      return true
+    }
+    catch (error) {
+      if ((error as { code?: string }).code === 'EPIPE')
+        return false
+      throw error
+    }
   }
 
   private async readStdout(resolveReady: (info: TinkerSessionInfo) => void): Promise<void> {
@@ -142,8 +165,8 @@ export class Runner {
     return new Promise((resolve, reject) => {
       this.handlers.set(id, { onFrame, done: error => error ? reject(error) : resolve() })
       this.current = id
-      this.proc.stdin.write(`${JSON.stringify({ op: 'eval', id, code })}\n`)
-      this.proc.stdin.flush()
+      // A session that has just ended rejects this run from its exit, with what it said.
+      this.send(`${JSON.stringify({ op: 'eval', id, code })}\n`)
     })
   }
 
@@ -161,8 +184,11 @@ export class Runner {
         clearTimeout(timer)
         resolve(models)
       })
-      this.proc.stdin.write(`${JSON.stringify({ op: 'models', id })}\n`)
-      this.proc.stdin.flush()
+      if (!this.send(`${JSON.stringify({ op: 'models', id })}\n`)) {
+        clearTimeout(timer)
+        this.modelRequests.delete(id)
+        resolve([])
+      }
     })
   }
 
