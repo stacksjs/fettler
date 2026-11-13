@@ -2,6 +2,7 @@ import type { Subprocess } from 'bun'
 import { existsSync } from 'node:fs'
 import { join } from 'node:path'
 import process from 'node:process'
+import { SETTLED_DECLARATION, type TypeView, typeView } from './type-view'
 
 /**
  * Language intelligence for the scratch buffer, from the TypeScript language
@@ -77,6 +78,8 @@ const SESSION_GLOBALS = [
   '    html: (markup: string, title?: string) => unknown',
   '    mail: (name: string, variables?: Record<string, unknown>) => Promise<unknown>',
   '  }',
+  '  /** What the type view wraps an awaited top-level expression in (see type-view.ts). */',
+  SETTLED_DECLARATION,
   '}',
   '',
 ].join('\n')
@@ -89,6 +92,9 @@ export class LanguageService {
   private version = 0
   private opened = false
   private text = ''
+  private source = ''
+  private activeLine: number | undefined
+  private view: TypeView = typeView('')
   private closed = false
   readonly uri: string
 
@@ -178,9 +184,16 @@ export class LanguageService {
    * it would be checked as a script, where top-level await is an error; the
    * trailing export makes it a module without moving any line.
    */
-  private async sync(text: string): Promise<void> {
+  private async sync(text: string, activeLine?: number): Promise<void> {
     await this.ready
-    const content = `${text}\nexport {}\n${SESSION_GLOBALS}`
+    // The checker reads the buffer as the session runs it: a promise at the
+    // top level is waited for, so its value is what the next line sees.
+    if (text !== this.source || activeLine !== this.activeLine || !this.opened) {
+      this.source = text
+      this.activeLine = activeLine
+      this.view = typeView(text, activeLine)
+    }
+    const content = `${this.view.text}\nexport {}\n${SESSION_GLOBALS}`
     if (!this.opened) {
       this.opened = true
       this.text = content
@@ -192,9 +205,15 @@ export class LanguageService {
     }
   }
 
+  /** A position in the buffer, as the language server's copy has it. */
+  private viewPosition(at: Position): { line: number, character: number } {
+    const moved = this.view.toView(at)
+    return { line: moved.line, character: moved.column }
+  }
+
   async complete(text: string, at: Position): Promise<CompletionEntry[]> {
-    await this.sync(text)
-    const result = await this.request('textDocument/completion', { textDocument: { uri: this.uri }, position: { line: at.line, character: at.column } }) as { items?: any[] } | any[] | null
+    await this.sync(text, at.line)
+    const result = await this.request('textDocument/completion', { textDocument: { uri: this.uri }, position: this.viewPosition(at) }) as { items?: any[] } | any[] | null
     const items = Array.isArray(result) ? result : result?.items ?? []
     return items.slice(0, 400).map((item: any) => ({
       label: typeof item.label === 'string' ? item.label : String(item.label),
@@ -206,8 +225,8 @@ export class LanguageService {
   }
 
   async hover(text: string, at: Position): Promise<string | null> {
-    await this.sync(text)
-    const result = await this.request('textDocument/hover', { textDocument: { uri: this.uri }, position: { line: at.line, character: at.column } }) as { contents?: unknown } | null
+    await this.sync(text, at.line)
+    const result = await this.request('textDocument/hover', { textDocument: { uri: this.uri }, position: this.viewPosition(at) }) as { contents?: unknown } | null
     const contents = result?.contents
     if (!contents)
       return null
@@ -220,8 +239,8 @@ export class LanguageService {
 
   /** The call the position is inside: its signature, its parameters and which one is being typed. */
   async signature(text: string, at: Position): Promise<SignatureHelp | null> {
-    await this.sync(text)
-    const result = await this.request('textDocument/signatureHelp', { textDocument: { uri: this.uri }, position: { line: at.line, character: at.column } }) as { signatures?: any[], activeSignature?: number, activeParameter?: number } | null
+    await this.sync(text, at.line)
+    const result = await this.request('textDocument/signatureHelp', { textDocument: { uri: this.uri }, position: this.viewPosition(at) }) as { signatures?: any[], activeSignature?: number, activeParameter?: number } | null
     const chosen = result?.signatures?.[result.activeSignature ?? 0]
     if (!chosen || typeof chosen.label !== 'string')
       return null
@@ -249,8 +268,8 @@ export class LanguageService {
       // An unused local is the point of a scratch buffer, not a mistake in it.
       .filter((item: any) => item.code !== 6133 && item.code !== 6196)
       .map((item: any) => ({
-        from: { line: item.range.start.line, column: item.range.start.character },
-        to: { line: item.range.end.line, column: item.range.end.character },
+        from: this.view.toSource({ line: item.range.start.line, column: item.range.start.character }),
+        to: this.view.toSource({ line: item.range.end.line, column: item.range.end.character }),
         message: String(item.message),
         severity: item.severity === 1 ? 'error' : item.severity === 2 ? 'warning' : 'info',
       }))
