@@ -3,19 +3,19 @@
   "lockfileVersion": 2,
   "workspaces": {
     "": {
-      "name": "fettler",
+      "name": "tinkerbelle",
       "dependencies": {
-        "@stacksjs/actions": "^0.75.539",
-        "@stacksjs/env": "^0.75.539",
-        "@stacksjs/path": "^0.75.539",
-        "@stacksjs/stx": "0.2.842",
-        "stacks": "^0.75.539"
+        "@stacksjs/actions": "^0.75.569",
+        "@stacksjs/env": "^0.75.569",
+        "@stacksjs/path": "^0.75.569",
+        "@stacksjs/stx": "0.2.868",
+        "stacks": "^0.75.569"
       },
       "devDependencies": {
         "@actions/expressions": "0.3.61",
-        "@stacksjs/components": "0.2.842",
+        "@stacksjs/components": "0.2.868",
         "better-dx": "^0.2.37",
-        "bun-plugin-stx": "0.2.842"
+        "bun-plugin-stx": "0.2.868"
       },
       "system": {
         "bun.sh": "1.4.4",

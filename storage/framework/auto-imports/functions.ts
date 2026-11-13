@@ -2,7 +2,7 @@
 
 export { increment, decrement, reset, count } from '../../../resources/functions/counter'
 export { isDark, preferredDark, toggleDark } from '../../../resources/functions/dark'
-export { openSettingsWindow, onSettingsRequested, announcePreferences, onPreferences, SETTINGS_WINDOW } from '../../../resources/functions/desktop-bridge'
+export { openSettingsWindow, onSettingsRequested, announcePreferences, announceChange, onPreferences, dragWindowFrom, SETTINGS_WINDOW } from '../../../resources/functions/desktop-bridge'
 export { fuzzyScore, fuzzyFilter } from '../../../resources/functions/fuzzy'
 export { trimHover } from '../../../resources/functions/hover-text'
 export { modelsIn, neighbourhood } from '../../../resources/functions/relation-graph'

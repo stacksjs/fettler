@@ -20,7 +20,9 @@ declare global {
   const openSettingsWindow: typeof autoImports.openSettingsWindow
   const onSettingsRequested: typeof autoImports.onSettingsRequested
   const announcePreferences: typeof autoImports.announcePreferences
+  const announceChange: typeof autoImports.announceChange
   const onPreferences: typeof autoImports.onPreferences
+  const dragWindowFrom: typeof autoImports.dragWindowFrom
   const SETTINGS_WINDOW: typeof autoImports.SETTINGS_WINDOW
   const fuzzyScore: typeof autoImports.fuzzyScore
   const fuzzyFilter: typeof autoImports.fuzzyFilter
