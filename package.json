@@ -1,7 +1,7 @@
 {
   "name": "tinkerbelle",
   "type": "module",
-  "version": "0.2.2",
+  "version": "0.2.3",
   "private": true,
   "description": "TinkerBelle",
   "engines": {
@@ -64,7 +64,7 @@
     "build:desktop": "./buddy build:desktop"
   },
   "dependencies": {
-    "@stacksjs/stx": "0.2.864",
+    "@stacksjs/stx": "0.2.868",
     "stacks": "^0.75.559",
     "@stacksjs/env": "^0.75.559",
     "@stacksjs/path": "^0.75.559",
@@ -85,14 +85,14 @@
   },
   "devDependencies": {
     "@actions/expressions": "0.3.61",
-    "@stacksjs/components": "0.2.864",
+    "@stacksjs/components": "0.2.868",
     "better-dx": "^0.2.37",
-    "bun-plugin-stx": "0.2.864"
+    "bun-plugin-stx": "0.2.868"
   },
   "overrides": {
-    "@stacksjs/stx": "0.2.864",
-    "bun-plugin-stx": "0.2.864",
-    "@stacksjs/components": "0.2.864",
+    "@stacksjs/stx": "0.2.868",
+    "bun-plugin-stx": "0.2.868",
+    "@stacksjs/components": "0.2.868",
     "ts-images": "https://registry.pantry.dev/ts-images@22073a9",
     "@stacksjs/ts-svg": "https://registry.pantry.dev/@stacksjs/ts-svg@367a010"
   }
