@@ -2,7 +2,7 @@
 import { fuzzyFilter } from '../functions/fuzzy'
 import { componentApi } from '@stacksjs/components/component-api'
 import { modelsIn, neighbourhood } from '../functions/relation-graph'
-import { announcePreferences, dragWindowFrom, onPreferences, onSettingsRequested, openSettingsWindow } from '../functions/desktop-bridge'
+import { announcePreferences, dragWindowFrom, onPreferences, onSettingsRequested, openSettingsWindow, restartToFinishUpdate } from '../functions/desktop-bridge'
 import { trimHover } from '../functions/hover-text'
 import { gridOf } from '../functions/tinker-table'
 import { renderTinkerValue } from '../functions/tinker-value'
@@ -264,6 +264,12 @@ async function loadLicense() {
 const update = state({ state: 'idle', currentVersion: '', selfUpdating: false })
 const updateBusy = state(false)
 const updateReady = derived(() => update().state === 'available' && Boolean(update().version))
+const updateInstalled = derived(() => update().state === 'installed')
+
+async function restartForUpdate() {
+  if (!(await restartToFinishUpdate()))
+    notice.set('Quit TinkerBelle and open it again to finish the update.')
+}
 
 async function loadUpdate() {
   const response = await fetch('/__desktop/update').catch(() => null)
@@ -560,7 +566,7 @@ const paletteItems = derived(() => {
     { kind: 'action', id: 'info', title: 'About this connection', hint: '' },
     { kind: 'action', id: 'assistant', title: 'Ask the assistant', hint: '' },
     { kind: 'action', id: 'mcp', title: 'Let AI tools use TinkerBelle (MCP)', hint: mcp().enabled ? 'on' : 'off' },
-    { kind: 'action', id: 'update', title: updateReady() ? `Install TinkerBelle ${update().version}` : 'Check for updates', hint: update().currentVersion || license().version || '' },
+    { kind: 'action', id: 'update', title: updateInstalled() ? 'Restart to finish updating' : updateReady() ? `Install TinkerBelle ${update().version}` : 'Check for updates', hint: update().currentVersion || license().version || '' },
     { kind: 'action', id: 'license', title: 'License', hint: license().source === 'license' ? 'Pro' : license().source === 'beta' ? 'beta' : 'free' },
     { kind: 'action', id: 'new-tab', title: 'New buffer', hint: '' },
     { kind: 'action', id: 'theme-system', title: 'Theme: follow the system', hint: ui().theme === 'system' ? 'current' : '' },
@@ -636,7 +642,8 @@ async function choose(item) {
     await openSettingsWindow('license')
   }
   else if (item.id === 'update') {
-    if (updateReady()) await installUpdate()
+    if (updateInstalled()) await restartForUpdate()
+    else if (updateReady()) await installUpdate()
     else await checkForUpdate()
   }
   else if (item.id === 'new-tab') {
@@ -964,7 +971,7 @@ useEventListener('focus', () => { void loadState(); void loadUpdate(); void load
 onPreferences((changed) => {
   if (!changed || typeof changed !== 'object') return
   // Not a preference: the AI settings, the MCP switch or the license changed in Settings.
-  if (changed.changed) { void loadAi(); void loadMcp(); void loadLicense() }
+  if (changed.changed) { void loadAi(); void loadMcp(); void loadLicense(); void loadUpdate() }
   else ui.set({ ...ui(), ...changed })
 })
 onSettingsRequested(() => { void openSettingsWindow() })
@@ -1327,7 +1334,9 @@ void loadUpdate()
         <button type="button" class="tb-icon" aria-label="Settings" :title="'Settings (' + MOD + '+,)'" @click="openSettingsWindow()" data-tinkerbelle-settings-button><span class="inline-block h-3.5 w-3.5 i-hugeicons-settings-01" aria-hidden="true"></span></button>
         <span class="ml-2 min-w-0 font-mono truncate" data-tinkerbelle-where>{{ whereLabel() }}</span>
         <span class="flex-1"></span>
-        @if(updateReady())
+        @if(updateInstalled())
+          <button type="button" class="flex gap-1.5 items-center shrink-0 tb-status-action" @click="restartForUpdate()" data-tinkerbelle-restart><span class="h-1.5 w-1.5 bg-emerald-500 rounded-full" aria-hidden="true"></span>Restart to finish updating</button>
+        @elseif(updateReady())
           <button type="button" class="flex gap-1.5 items-center shrink-0 tb-status-action" :disabled="updateBusy()" @click="installUpdate()" data-tinkerbelle-update><span class="h-1.5 w-1.5 bg-sky-500 rounded-full" aria-hidden="true"></span>{{ updateBusy() ? 'Updating' : 'Update to ' + update().version }}</button>
         @endif
         <span class="shrink-0 px-1.5" :class="problems() ? 'tb-problems' : ''" data-tinkerbelle-problems>{{ problems() === 0 ? 'No problems' : problems() === 1 ? '1 problem' : problems() + ' problems' }}</span>

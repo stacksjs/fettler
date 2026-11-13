@@ -1,6 +1,6 @@
 <script client>
 import { componentApi } from '@stacksjs/components/component-api'
-import { announceChange, announcePreferences, onPreferences } from '../functions/desktop-bridge'
+import { announceChange, announcePreferences, onPreferences, restartToFinishUpdate } from '../functions/desktop-bridge'
 
 // The Settings window. It is a window of its own, opened by Cmd+, from the
 // editor: what is changed here is kept by the agent and told to the editor as
@@ -156,12 +156,15 @@ const update = state({ state: 'idle', currentVersion: '', selfUpdating: false })
 const updateBusy = state(false)
 const updateNote = state('')
 const updateReady = derived(() => update().state === 'available' && Boolean(update().version))
+const updateInstalled = derived(() => update().state === 'installed')
+const updateWork = state('Checking')
 const updateStatus = derived(() => {
   const now = update()
-  if (updateBusy()) return 'Checking'
+  if (updateBusy()) return updateWork()
+  if (now.state === 'installed') return `Version ${now.version || ''} is installed. Restart TinkerBelle to use it.`.replace('  ', ' ')
   if (now.state === 'available' && now.version) return `Version ${now.version} is available.`
   if (now.state === 'current') return 'This is the newest version.'
-  if (now.state === 'installing' || now.state === 'installed') return 'Installing. The app restarts when it is done.'
+  if (now.state === 'installing') return 'Installing'
   if (now.state === 'error' || now.state === 'refused') return now.error || now.message || 'The last check did not finish.'
   return now.currentVersion ? 'Checked when the app starts and once a day.' : 'Updates are checked by the installed app. This copy is running from source.'
 })
@@ -172,6 +175,7 @@ async function loadUpdate() {
 }
 
 async function checkForUpdate() {
+  updateWork.set('Checking')
   updateBusy.set(true)
   updateNote.set('')
   try {
@@ -193,15 +197,24 @@ async function installUpdate() {
     updateNote.set(`${now.warning} Choose Install again to go ahead.`)
     return
   }
+  updateWork.set(`Downloading and installing ${now.version || 'the update'}`)
   updateBusy.set(true)
+  updateNote.set('')
   try {
     const answer = await send('/__desktop/update', { action: 'install', acknowledge: updateWarned })
     update.set({ ...now, ...answer.body })
     if (answer.body.message) updateNote.set(answer.body.message)
+    // The editor window shows the same step.
+    announceChange()
   }
   finally {
     updateBusy.set(false)
   }
+}
+
+async function restartForUpdate() {
+  if (!(await restartToFinishUpdate()))
+    updateNote.set('Quit TinkerBelle and open it again to finish the update.')
 }
 
 // A link to a pane (`/settings#ai`) opens that pane: how the editor sends someone to one setting.
@@ -380,8 +393,10 @@ void loadUpdate()
         <SettingsPane id="updates" title="Software Update">
           <SettingsGroup>
             <SettingsRow :label="'TinkerBelle ' + (update().currentVersion || license().version || '')" :description="updateStatus()" setting="update" keywords="version upgrade new" multiline>
-              @if(updateReady())
-                <Button appearance="mac" variant="primary" :disabled="updateBusy()" @click="installUpdate()">Install</Button>
+              @if(updateInstalled())
+                <Button appearance="mac" variant="primary" @click="restartForUpdate()" data-tinkerbelle-restart>Restart Now</Button>
+              @elseif(updateReady())
+                <Button appearance="mac" variant="primary" :disabled="updateBusy()" @click="installUpdate()" data-tinkerbelle-install>Install</Button>
               @else
                 <Button appearance="mac" :disabled="updateBusy()" @click="checkForUpdate()">Check Now</Button>
               @endif

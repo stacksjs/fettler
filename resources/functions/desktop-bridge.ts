@@ -10,6 +10,7 @@
 interface CraftShell {
   window?: { open?: (options: Record<string, unknown>) => Promise<unknown>, startDrag?: () => unknown, maximize?: () => unknown }
   settings?: { onOpen?: (listener: () => void) => unknown }
+  app?: { quit?: () => unknown }
 }
 
 function shell(): CraftShell | undefined {
@@ -49,6 +50,19 @@ export function onSettingsRequested(listener: () => void): () => void {
   else
     globalThis.addEventListener('craft:settings:open', heard)
   return () => globalThis.removeEventListener('craft:settings:open', heard)
+}
+
+/**
+ * Finish an update that is in place. The launcher starts the new version
+ * once the window has closed, so restarting is quitting: the app comes back
+ * by itself, as the version that was installed.
+ */
+export async function restartToFinishUpdate(): Promise<boolean> {
+  const quit = shell()?.app?.quit
+  if (typeof quit !== 'function')
+    return false
+  await quit()
+  return true
 }
 
 const CHANNEL = 'tinkerbelle-preferences'
