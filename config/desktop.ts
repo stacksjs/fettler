@@ -20,7 +20,8 @@ export default {
     homepage: origin,
     // 1024 pixels square; the build makes each platform's icon from it.
     icon: 'resources/brand/app-icon.png',
-    window: { width: 1280, height: 800 },
+    // No title bar: the page's own bar carries the window buttons, like a terminal's.
+    window: { width: 1280, height: 800, titlebarHidden: true },
     agent: {
       entry: 'app/Desktop/Agent.ts',
       views: 'resources/desktop',

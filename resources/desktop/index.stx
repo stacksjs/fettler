@@ -2,7 +2,7 @@
 import { fuzzyFilter } from '../functions/fuzzy'
 import { componentApi } from '@stacksjs/components/component-api'
 import { modelsIn, neighbourhood } from '../functions/relation-graph'
-import { announcePreferences, onPreferences, onSettingsRequested, openSettingsWindow } from '../functions/desktop-bridge'
+import { announcePreferences, dragWindowFrom, onPreferences, onSettingsRequested, openSettingsWindow } from '../functions/desktop-bridge'
 import { trimHover } from '../functions/hover-text'
 import { gridOf } from '../functions/tinker-table'
 import { renderTinkerValue } from '../functions/tinker-value'
@@ -383,7 +383,7 @@ const systemDark = useMediaQuery('(prefers-color-scheme: dark)')
 const themeClass = derived(() => ui().theme === 'dark' || (ui().theme !== 'light' && systemDark()) ? 'dark' : 'light')
 const editorTheme = derived(() => ui().theme === 'system' ? undefined : ui().theme)
 // The editor sets its own size on itself, which an inherited value cannot change: the page's rule below hands these to it.
-const editorStyle = derived(() => `--tb-code-size: ${ui().fontSize}px; --tb-code-line: ${Math.round(ui().fontSize * 1.55)}px`)
+const editorStyle = derived(() => `--tb-code-size: ${ui().fontSize}px; --tb-code-line: ${Math.round(ui().fontSize * 1.7)}px`)
 
 function tabTitle(tab) {
   const line = (tab.code || '').split('\n').find(part => part.trim()) || ''
@@ -968,6 +968,8 @@ onPreferences((changed) => {
   else ui.set({ ...ui(), ...changed })
 })
 onSettingsRequested(() => { void openSettingsWindow() })
+// The bar stands in for the title bar: pressing an empty part of it moves the window.
+dragWindowFrom('[data-window-drag]')
 
 // Preferences first: what the window connects to at launch is one of them.
 void loadPreferences().then(loadState)
@@ -986,19 +988,64 @@ void loadUpdate()
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>TinkerBelle</title>
     <style>
-      /* The editor is the window: no frame of its own, and the page's background behind the code. */
-      [data-tinkerbelle-editor] [data-stx-code-editor] { border: 0; border-radius: 0; --stx-code-bg: transparent; --stx-code-padding-y: 14px; --stx-code-padding-x: 16px; --stx-code-font-size: var(--tb-code-size, 13px); --stx-code-line-height: var(--tb-code-line, 20px); }
-      /* The caret and the selection carry the brand's brass; nothing else in the window is coloured. */
-      [data-tinkerbelle-app] { --stx-accent: #d99a1c; }
-      .tinkerbelle-pane { width: 44%; min-width: 320px; max-width: 760px; }
-      .tinkerbelle-float { box-shadow: 0 16px 48px -16px rgb(0 0 0 / 0.28), 0 2px 6px -2px rgb(0 0 0 / 0.08); }
+      /*
+       * One surface, like a terminal: the bar, the code and the status line share a background, and
+       * only hairlines part them. The colours are a slate dark and a paper light; everything else in
+       * the window is drawn from these.
+       */
+      [data-tinkerbelle-theme] {
+        --tb-bg: #fafafa; --tb-raised: #f1f1f2; --tb-line: rgb(0 0 0 / 0.08); --tb-hover: rgb(0 0 0 / 0.06);
+        --tb-fg: #2f3238; --tb-muted: #8b8f98; --stx-accent: #b97d0d;
+      }
+      [data-tinkerbelle-theme].dark {
+        --tb-bg: #282c33; --tb-raised: #21252b; --tb-line: rgb(255 255 255 / 0.07); --tb-hover: rgb(255 255 255 / 0.07);
+        --tb-fg: #c8ccd4; --tb-muted: #7c828d; --stx-accent: #e0a526;
+      }
+      html, body { background: var(--tb-bg, #282c33); }
       body { font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Text', 'Segoe UI Variable', 'Segoe UI', system-ui, sans-serif; }
+      .tb-window { background: var(--tb-bg); color: var(--tb-fg); }
+
+      /*
+       * The bar is the window's title bar: there is no other. It leaves room for the window buttons,
+       * which the shell measures and publishes, and every part of it that is not a control drags the window.
+       */
+      .tb-bar {
+        height: max(38px, calc(var(--craft-window-controls-inset-y, 0px) * 2 + var(--craft-window-controls-height, 0px)));
+        padding: 0 8px 0 calc(var(--craft-window-controls-inset-x, 0px) + var(--craft-window-controls-width, 0px) + 10px);
+        border-bottom: 1px solid var(--tb-line);
+        user-select: none; -webkit-user-select: none;
+      }
+      .tb-run {
+        height: 24px; padding: 0 9px 0 7px; border: 1px solid var(--tb-line); border-radius: 6px;
+        color: var(--tb-fg); font-size: 12px; font-weight: 500;
+      }
+      .tb-run:hover { background: var(--tb-hover); }
+      .tb-run:disabled { opacity: 0.4; }
+
+      .tb-status { height: 26px; padding: 0 6px; border-top: 1px solid var(--tb-line); color: var(--tb-muted); font-size: 11px; }
+      .tb-icon { display: inline-flex; align-items: center; justify-content: center; width: 22px; height: 20px; border-radius: 4px; color: var(--tb-muted); }
+      .tb-icon:hover, .tb-status-action:hover { background: var(--tb-hover); color: var(--tb-fg); }
+      .tb-icon-on { color: var(--tb-fg); background: var(--tb-hover); }
+      .tb-status-action { padding: 0 6px; height: 20px; border-radius: 4px; color: var(--tb-fg); }
+      .tb-problems { color: #d1556a; }
+
+      /* The editor is the window: no frame of its own, and the window's background behind the code. */
+      [data-tinkerbelle-editor] [data-stx-code-editor] {
+        border: 0; border-radius: 0; --stx-code-bg: transparent; --stx-code-fg: var(--tb-fg);
+        --stx-code-gutter-fg: color-mix(in srgb, var(--tb-muted) 70%, transparent); --stx-code-gutter-active-fg: var(--tb-fg);
+        --stx-code-active-line: var(--tb-hover);
+        --stx-code-padding-y: 12px; --stx-code-padding-x: 14px;
+        --stx-code-font: 'Zed Mono', 'JetBrains Mono', 'SF Mono', ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+        --stx-code-font-size: var(--tb-code-size, 13px); --stx-code-line-height: var(--tb-code-line, 22px);
+      }
+      .tinkerbelle-pane { width: 44%; min-width: 320px; max-width: 760px; background: var(--tb-raised); border-left: 1px solid var(--tb-line); }
+      .tinkerbelle-float { box-shadow: 0 16px 48px -16px rgb(0 0 0 / 0.4), 0 2px 6px -2px rgb(0 0 0 / 0.12); }
     </style>
   </head>
-  <body class="overflow-hidden h-screen antialiased text-neutral-900 dark:text-neutral-100 bg-neutral-50 dark:bg-neutral-950">
+  <body class="overflow-hidden h-screen antialiased">
     <div :class="themeClass()" data-tinkerbelle-theme>
-    <div class="flex flex-col h-screen text-neutral-900 dark:text-neutral-100 bg-neutral-50 dark:bg-neutral-950" data-tinkerbelle-app>
-      <header class="flex gap-1 items-center shrink-0 pl-2 pr-2 h-10 border-b border-neutral-200/70 dark:border-neutral-800/70" data-tinkerbelle-bar>
+    <div class="flex flex-col h-screen tb-window" data-tinkerbelle-app>
+      <header class="flex gap-1 items-center shrink-0 tb-bar" data-window-drag data-tinkerbelle-bar>
         <div class="relative shrink-0">
           <button type="button" class="flex gap-2 items-center px-2 h-7 text-[13px] hover:bg-neutral-200/60 dark:hover:bg-neutral-800/70 rounded-md" aria-haspopup="dialog" :aria-expanded="switcherOpen() ? 'true' : 'false'" :title="'Open a project (' + MOD + '+O)'" @click="switcherOpen.set(!switcherOpen())" data-tinkerbelle-switch>
             <span :class="dotClass()" class="h-1.5 w-1.5 rounded-full" aria-hidden="true"></span>
@@ -1053,9 +1100,7 @@ void loadUpdate()
           <button type="button" class="flex items-center justify-center shrink-0 h-7 w-7 text-neutral-500 hover:text-neutral-900 dark:hover:text-neutral-100 hover:bg-neutral-200/60 dark:hover:bg-neutral-800/70 rounded-md" aria-label="New buffer" :title="'New buffer (' + MOD + '+T)'" @click="newTab()" data-tinkerbelle-new-tab><span class="inline-block h-3.5 w-3.5 i-hugeicons-add-01" aria-hidden="true"></span></button>
         </div>
 
-        <button type="button" class="flex items-center shrink-0 px-2 h-7 font-mono text-[11px] text-neutral-500 hover:text-neutral-900 dark:hover:text-neutral-100 hover:bg-neutral-200/60 dark:hover:bg-neutral-800/70 rounded-md" aria-label="Open the command palette" :title="'Everything else (' + MOD + '+K)'" @click="openPalette()" data-tinkerbelle-palette-button>{{ MOD_KEY }}K</button>
-        <button type="button" :class="paneOpen() ? 'text-neutral-900 dark:text-neutral-100 bg-neutral-200/70 dark:bg-neutral-800' : ''" class="flex items-center justify-center shrink-0 h-7 w-7 text-neutral-500 hover:text-neutral-900 dark:hover:text-neutral-100 hover:bg-neutral-200/60 dark:hover:bg-neutral-800/70 rounded-md" :aria-pressed="paneOpen() ? 'true' : 'false'" aria-label="Show or hide the side pane" :title="'Side pane (' + MOD + '+J)'" @click="togglePane()" data-tinkerbelle-pane-toggle><span class="inline-block h-4 w-4 i-hugeicons-sidebar-right" aria-hidden="true"></span></button>
-        <button type="button" class="flex gap-1.5 items-center shrink-0 ml-1 pl-2.5 pr-2 h-7 font-medium text-[12px] text-white dark:text-neutral-900 bg-neutral-900 dark:bg-neutral-100 rounded-md disabled:opacity-40 transition-transform active:scale-[0.98]" :disabled="running() || !connected()" @click="runAll()" data-tinkerbelle-run>{{ running() ? 'Running' : 'Run' }}<span class="font-mono font-normal text-[10px] opacity-60">{{ RUN_KEYS }}</span></button>
+        <button type="button" class="flex gap-1.5 items-center shrink-0 tb-run" :disabled="running() || !connected()" :title="'Run (' + MOD + '+Enter)'" @click="runAll()" data-tinkerbelle-run><span :class="running() ? 'i-hugeicons-stop' : 'i-hugeicons-play'" class="inline-block h-3.5 w-3.5" aria-hidden="true"></span>{{ running() ? 'Running' : 'Run' }}</button>
       </header>
 
       @if(notice())
@@ -1097,7 +1142,7 @@ void loadUpdate()
           />
         </section>
 
-        <aside :class="paneOpen() ? 'flex flex-col shrink-0 min-h-0 border-l border-neutral-200/70 dark:border-neutral-800/70 tinkerbelle-pane' : 'hidden'" aria-label="Result, log, assistant and connection" data-tinkerbelle-pane>
+        <aside :class="paneOpen() ? 'flex flex-col shrink-0 min-h-0 tinkerbelle-pane' : 'hidden'" aria-label="Result, log, assistant and connection" data-tinkerbelle-pane>
           <div class="flex gap-0.5 items-center shrink-0 px-2 h-9 border-b border-neutral-200/70 dark:border-neutral-800/70" role="tablist">
             @foreach(PANE_VIEWS as item)
               <button type="button" role="tab" :aria-selected="view() === item.id ? 'true' : 'false'" :class="view() === item.id ? 'px-2 h-6 text-[12px] font-medium text-neutral-900 dark:text-neutral-100' : 'px-2 h-6 text-[12px] text-neutral-400 hover:text-neutral-700 dark:hover:text-neutral-200'" @click="showView(item.id)" :data-tinkerbelle-view="item.id">{{ item.title }}</button>
@@ -1276,14 +1321,18 @@ void loadUpdate()
         </aside>
       </main>
 
-      <footer class="flex gap-4 items-center shrink-0 px-3 h-6 text-[11px] text-neutral-400 border-neutral-200/70 border-t dark:border-neutral-800/70" data-tinkerbelle-status>
-        <span class="min-w-0 font-mono truncate" data-tinkerbelle-where>{{ whereLabel() }}</span>
+      <footer class="flex gap-1 items-center shrink-0 tb-status" data-tinkerbelle-status>
+        <button type="button" :class="paneOpen() ? 'tb-icon tb-icon-on' : 'tb-icon'" :aria-pressed="paneOpen() ? 'true' : 'false'" aria-label="Show or hide the side pane" :title="'Side pane (' + MOD + '+J)'" @click="togglePane()" data-tinkerbelle-pane-toggle><span class="inline-block h-3.5 w-3.5 i-hugeicons-sidebar-right" aria-hidden="true"></span></button>
+        <button type="button" class="tb-icon" aria-label="Open the command palette" :title="'Commands (' + MOD + '+K)'" @click="openPalette()" data-tinkerbelle-palette-button><span class="inline-block h-3.5 w-3.5 i-hugeicons-search-01" aria-hidden="true"></span></button>
+        <button type="button" class="tb-icon" aria-label="Settings" :title="'Settings (' + MOD + '+,)'" @click="openSettingsWindow()" data-tinkerbelle-settings-button><span class="inline-block h-3.5 w-3.5 i-hugeicons-settings-01" aria-hidden="true"></span></button>
+        <span class="ml-2 min-w-0 font-mono truncate" data-tinkerbelle-where>{{ whereLabel() }}</span>
+        <span class="flex-1"></span>
         @if(updateReady())
-          <button type="button" class="flex gap-1.5 items-center shrink-0 text-neutral-700 dark:text-neutral-200 hover:text-neutral-900 dark:hover:text-white disabled:opacity-50" :disabled="updateBusy()" @click="installUpdate()" data-tinkerbelle-update><span class="h-1.5 w-1.5 bg-sky-500 rounded-full" aria-hidden="true"></span>{{ updateBusy() ? 'Updating' : 'Update to ' + update().version }}</button>
+          <button type="button" class="flex gap-1.5 items-center shrink-0 tb-status-action" :disabled="updateBusy()" @click="installUpdate()" data-tinkerbelle-update><span class="h-1.5 w-1.5 bg-sky-500 rounded-full" aria-hidden="true"></span>{{ updateBusy() ? 'Updating' : 'Update to ' + update().version }}</button>
         @endif
-        <span class="shrink-0 ml-auto" :class="problems() ? 'text-red-600 dark:text-red-400' : ''" data-tinkerbelle-problems>{{ problems() === 0 ? 'No problems' : problems() === 1 ? '1 problem' : problems() + ' problems' }}</span>
-        <span class="shrink-0 font-mono">{{ caretLabel() }}</span>
-        <span class="shrink-0">TypeScript</span>
+        <span class="shrink-0 px-1.5" :class="problems() ? 'tb-problems' : ''" data-tinkerbelle-problems>{{ problems() === 0 ? 'No problems' : problems() === 1 ? '1 problem' : problems() + ' problems' }}</span>
+        <span class="shrink-0 px-1.5 font-mono">{{ caretLabel() }}</span>
+        <span class="shrink-0 px-1.5">TypeScript</span>
       </footer>
 
       @if(connectOpen())

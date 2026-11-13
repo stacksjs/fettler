@@ -8,7 +8,7 @@
  */
 
 interface CraftShell {
-  window?: { open?: (options: Record<string, unknown>) => Promise<unknown> }
+  window?: { open?: (options: Record<string, unknown>) => Promise<unknown>, startDrag?: () => unknown, maximize?: () => unknown }
   settings?: { onOpen?: (listener: () => void) => unknown }
 }
 
@@ -74,4 +74,30 @@ export function onPreferences(listener: (preferences: unknown) => void): () => v
   const channel = new BroadcastChannel(CHANNEL)
   channel.onmessage = event => listener(event.data)
   return () => channel.close()
+}
+
+/**
+ * Let the parts of the page matching `selector` move the window, the way a
+ * title bar does. The window has no title bar of its own, and the web view
+ * ignores the CSS that would make a region draggable, so a press on an empty
+ * part of the bar is handed to the shell, which runs a real window drag from
+ * it. A double click zooms the window, as it does on a title bar.
+ */
+export function dragWindowFrom(selector: string): void {
+  const isHandle = (target: EventTarget | null): boolean => {
+    if (!(target instanceof Element))
+      return false
+    // Anything that can be pressed is not a handle, or a click released a pixel off would move the window.
+    if (target.closest('button, a, input, select, textarea, [role="button"], [role="tab"]'))
+      return false
+    return Boolean(target.closest(selector))
+  }
+  globalThis.addEventListener('mousedown', (event) => {
+    if ((event as MouseEvent).button === 0 && isHandle(event.target))
+      void shell()?.window?.startDrag?.()
+  })
+  globalThis.addEventListener('dblclick', (event) => {
+    if (isHandle(event.target))
+      void shell()?.window?.maximize?.()
+  })
 }
