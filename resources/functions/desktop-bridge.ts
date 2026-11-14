@@ -11,6 +11,7 @@ interface CraftShell {
   window?: { open?: (options: Record<string, unknown>) => Promise<unknown>, startDrag?: () => unknown, maximize?: () => unknown }
   settings?: { onOpen?: (listener: () => void) => unknown }
   app?: { quit?: () => unknown }
+  shell?: { openExternal?: (url: string) => unknown }
 }
 
 function shell(): CraftShell | undefined {
@@ -63,6 +64,43 @@ export async function restartToFinishUpdate(): Promise<boolean> {
     return false
   await quit()
   return true
+}
+
+/**
+ * Open a page of the app's website in the person's browser, never in the app's
+ * own window. Only an https address is opened: a link is the one thing here
+ * that leaves the app, so it is held to the kind of address a website has.
+ */
+export async function openExternal(url: string): Promise<boolean> {
+  let address: URL
+  try {
+    address = new URL(url)
+  }
+  catch {
+    return false
+  }
+  if (address.protocol !== 'https:')
+    return false
+  const open = shell()?.shell?.openExternal
+  if (typeof open === 'function')
+    await open(address.href)
+  else
+    globalThis.open(address.href, '_blank', 'noopener,noreferrer')
+  return true
+}
+
+/** The modifier key's name on this computer: the Command sign on a Mac, Ctrl elsewhere. */
+export function modifierKey(platform: string = globalThis.navigator?.platform ?? ''): string {
+  return /mac|iphone|ipad/i.test(platform) ? '\u2318' : 'Ctrl'
+}
+
+/** A shortcut as the keys to show: `['mod', 'Enter']` is Command and Return on a Mac, Ctrl and Enter elsewhere. */
+export function shortcutKeys(keys: string[], platform: string = globalThis.navigator?.platform ?? ''): string[] {
+  const mac = /mac|iphone|ipad/i.test(platform)
+  const names: Record<string, string> = mac
+    ? { mod: '\u2318', alt: '\u2325', shift: '\u21E7', enter: '\u21A9', escape: 'esc', tab: '\u21E5' }
+    : { mod: 'Ctrl', alt: 'Alt', shift: 'Shift', enter: 'Enter', escape: 'Esc', tab: 'Tab' }
+  return keys.map(key => names[key.toLowerCase()] ?? key)
 }
 
 const CHANNEL = 'tinkerbelle-preferences'

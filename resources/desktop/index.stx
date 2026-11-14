@@ -2,6 +2,7 @@
 import { fuzzyFilter } from '../functions/fuzzy'
 import { componentApi } from '@stacksjs/components/component-api'
 import { modelsIn, neighbourhood } from '../functions/relation-graph'
+import { DEFAULT_PREFERENCES, editorStyle as editorStyleOf } from '../../app/TinkerBelle/preferences'
 import { announcePreferences, dragWindowFrom, onPreferences, onSettingsRequested, openSettingsWindow, restartToFinishUpdate } from '../functions/desktop-bridge'
 import { trimHover } from '../functions/hover-text'
 import { gridOf } from '../functions/tinker-table'
@@ -105,10 +106,10 @@ function showView(name) {
 }
 
 function logClass(level) {
-  if (level === 'error') return 'text-red-700 dark:text-red-300'
-  if (level === 'warning') return 'text-amber-700 dark:text-amber-300'
-  if (level === 'debug') return 'text-neutral-400'
-  return 'text-neutral-700 dark:text-neutral-200'
+  if (level === 'error') return 'tb-danger-fg'
+  if (level === 'warning') return 'tb-warn-fg'
+  if (level === 'debug') return 'tb-fg-3'
+  return 'tb-fg-2'
 }
 
 const ai = state({ enabled: false, provider: 'anthropic', model: '', host: '', automatic: false, hasKey: false })
@@ -374,22 +375,23 @@ function openNode(detail) {
 const PALETTE_ICONS = { project: 'i-hugeicons-folder-01', snippet: 'i-hugeicons-note-01', history: 'i-hugeicons-clock-01', ssh: 'i-hugeicons-cloud-server', docker: 'i-hugeicons-package', kube: 'i-hugeicons-package' }
 const PANE_VIEWS = [{ id: 'result', title: 'Result' }, { id: 'logs', title: 'Log' }, { id: 'assistant', title: 'Assistant' }, { id: 'info', title: 'Info' }]
 
-const VIEW_ON = 'px-1.5 h-5 rounded bg-neutral-200/80 dark:bg-neutral-800 text-neutral-900 dark:text-neutral-100'
-const VIEW_OFF = 'px-1.5 h-5 rounded hover:text-neutral-900 dark:hover:text-neutral-100'
+const VIEW_ON = 'px-1.5 h-5 rounded tb-fill tb-fg'
+const VIEW_OFF = 'px-1.5 h-5 rounded tb-hover-fg'
 
 const tabs = state([{ id: 't1', title: 'Untitled', code: code() }])
 const activeTab = state('t1')
 // The preferences Settings changes (app/TinkerBelle/preferences.ts holds the list and its defaults).
-const ui = state({ theme: 'system', startup: 'sandbox', fontSize: 13, tabSize: 2, lineNumbers: true, completions: true, hover: true, signatureHelp: true, openPaneOnRun: true })
+const ui = state({ ...DEFAULT_PREFERENCES })
 let saveTimer = 0
 let tabCounter = 1
 
 // "System" follows the machine: the dark variants are class based, so the class is set from the media query.
 const systemDark = useMediaQuery('(prefers-color-scheme: dark)')
 const themeClass = derived(() => ui().theme === 'dark' || (ui().theme !== 'light' && systemDark()) ? 'dark' : 'light')
-const editorTheme = derived(() => ui().theme === 'system' ? undefined : ui().theme)
+// The code's colours follow the same class the window does, so a chosen theme and the system's never disagree.
+const editorTheme = derived(() => themeClass())
 // The editor sets its own size on itself, which an inherited value cannot change: the page's rule below hands these to it.
-const editorStyle = derived(() => `--tb-code-size: ${ui().fontSize}px; --tb-code-line: ${Math.round(ui().fontSize * 1.7)}px`)
+const editorStyle = derived(() => editorStyleOf(ui()))
 
 function tabTitle(tab) {
   const line = (tab.code || '').split('\n').find(part => part.trim()) || ''
@@ -485,7 +487,7 @@ const isProduction = derived(() => /prod|live/i.test((connection() && connection
 const environmentLabel = derived(() => (connection() && connection().environment) || '')
 const whereLabel = derived(() => (connection() && connection().where) || '')
 const connected = derived(() => connection() !== null)
-const dotClass = derived(() => !connected() ? 'bg-neutral-300 dark:bg-neutral-600' : isProduction() ? 'bg-red-500' : 'bg-emerald-500')
+const dotClass = derived(() => !connected() ? 'tb-dot-off' : isProduction() ? 'tb-dot-danger' : 'tb-dot-ok')
 const problems = derived(() => diagnostics().filter(item => item.severity !== 'info' && item.severity !== 'hint').length)
 const recentProjects = derived(() => recent().filter(item => item.kind === 'local' || (item.spec && item.kind !== 'sandbox')).slice(0, 6))
 
@@ -996,20 +998,86 @@ void loadUpdate()
     <title>TinkerBelle</title>
     <style>
       /*
-       * One surface, like a terminal: the bar, the code and the status line share a background, and
-       * only hairlines part them. The colours are a slate dark and a paper light; everything else in
-       * the window is drawn from these.
+       * One palette, two values each. Every colour in the window is one of these roles: nothing
+       * below names a grey of its own, so light and dark cannot drift apart. The window is one
+       * surface, like a terminal (bar, code and status line share a background, parted by
+       * hairlines); the side pane sits a step back from it, and anything that floats or takes
+       * typing sits a step forward.
        */
       [data-tinkerbelle-theme] {
-        --tb-bg: #fafafa; --tb-raised: #f1f1f2; --tb-line: rgb(0 0 0 / 0.08); --tb-hover: rgb(0 0 0 / 0.06);
-        --tb-fg: #2f3238; --tb-muted: #8b8f98; --stx-accent: #b97d0d;
+        color-scheme: light;
+        --tb-bg: #fbfbfa; --tb-raised: #f3f3f1; --tb-surface: #ffffff; --tb-fill: rgb(0 0 0 / 0.055);
+        --tb-line: rgb(0 0 0 / 0.1); --tb-line-strong: rgb(0 0 0 / 0.24); --tb-hover: rgb(0 0 0 / 0.05);
+        --tb-fg: #1f2328; --tb-fg-2: #59606b; --tb-muted: #8a909b;
+        --tb-primary: #1f2328; --tb-primary-fg: #ffffff;
+        --tb-danger: #c2283c; --tb-danger-bg: rgb(194 40 60 / 0.07); --tb-danger-line: rgb(194 40 60 / 0.28); --tb-danger-solid: #c2283c;
+        --tb-warn: #8f5f00; --tb-ok: #1f9d57; --tb-info: #0b6bcb; --tb-off: #c4c7cc;
+        --tb-scrim: rgb(20 22 26 / 0.28); --tb-shadow: 0 16px 48px -16px rgb(0 0 0 / 0.28), 0 2px 6px -2px rgb(0 0 0 / 0.1);
+        --tb-selection: rgb(185 125 13 / 0.22);
+        --stx-accent: #9a6700;
       }
       [data-tinkerbelle-theme].dark {
-        --tb-bg: #282c33; --tb-raised: #21252b; --tb-line: rgb(255 255 255 / 0.07); --tb-hover: rgb(255 255 255 / 0.07);
-        --tb-fg: #c8ccd4; --tb-muted: #7c828d; --stx-accent: #e0a526;
+        color-scheme: dark;
+        --tb-bg: #23262c; --tb-raised: #1e2126; --tb-surface: #2c3038; --tb-fill: rgb(255 255 255 / 0.075);
+        --tb-line: rgb(255 255 255 / 0.09); --tb-line-strong: rgb(255 255 255 / 0.26); --tb-hover: rgb(255 255 255 / 0.065);
+        --tb-fg: #dcdfe4; --tb-fg-2: #a4aab5; --tb-muted: #7b828e;
+        --tb-primary: #e4e6ea; --tb-primary-fg: #1b1d21;
+        --tb-danger: #f08592; --tb-danger-bg: rgb(240 133 146 / 0.12); --tb-danger-line: rgb(240 133 146 / 0.32); --tb-danger-solid: #cf3d52;
+        --tb-warn: #e3b341; --tb-ok: #3fb97a; --tb-info: #6cb6ff; --tb-off: #555b66;
+        --tb-scrim: rgb(0 0 0 / 0.5); --tb-shadow: 0 18px 52px -14px rgb(0 0 0 / 0.7), 0 0 0 1px rgb(255 255 255 / 0.06);
+        --tb-selection: rgb(224 165 38 / 0.26);
+        --stx-accent: #e0a526;
       }
-      html, body { background: var(--tb-bg, #282c33); }
+      /*
+       * The component library draws from role tokens; these are the same roles, so its tables, trees
+       * and menus match the window. The selector is doubled because the library sets its own values
+       * on `.dark`, the class this same element carries, and would otherwise win in the dark.
+       */
+      [data-tinkerbelle-theme][data-tinkerbelle-theme] {
+        --stx-page: var(--tb-bg); --stx-content: var(--tb-bg);
+        --stx-panel: var(--tb-surface); --stx-field: var(--tb-surface); --stx-field-hover: var(--tb-surface);
+        --stx-surface: var(--tb-raised); --stx-surface-raised: var(--tb-surface); --stx-surface-sunken: var(--tb-fill);
+        --stx-surface-hover: var(--tb-hover); --stx-surface-raised-hover: var(--tb-hover); --stx-surface-sunken-hover: var(--tb-hover);
+        --stx-fg: var(--tb-fg); --stx-fg-strong: var(--tb-fg); --stx-fg-soft: var(--tb-fg-2); --stx-fg-muted: var(--tb-fg-2); --stx-fg-subtle: var(--tb-muted);
+        --stx-line: var(--tb-line); --stx-line-strong: var(--tb-line-strong); --stx-line-hover: var(--tb-line-strong);
+        --stx-inverse: var(--tb-primary); --stx-inverse-ink: var(--tb-primary-fg);
+        --stx-link: var(--stx-accent); --stx-link-hover: var(--stx-accent);
+        --stx-danger: var(--tb-danger); --stx-danger-fg: var(--tb-danger); --stx-danger-line: var(--tb-danger-line);
+        --stx-warning: var(--tb-warn); --stx-success: var(--tb-ok); --stx-info: var(--tb-info);
+      }
+      /* Before the page has read the preference, the window is the system's colour and not a flash of the other one. */
+      html, body { background: #fbfbfa; }
+      @media (prefers-color-scheme: dark) { html, body { background: #23262c; } }
       body { font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Text', 'Segoe UI Variable', 'Segoe UI', system-ui, sans-serif; }
+      [data-tinkerbelle-theme] ::selection { background: var(--tb-selection); }
+
+      /* The roles as classes, for the markup. */
+      .tb-surface { background-color: var(--tb-surface); }
+      .tb-fill { background-color: var(--tb-fill); }
+      .tb-line { border-color: var(--tb-line); }
+      .tb-divide > * + * { border-color: var(--tb-line); }
+      .tb-fg { color: var(--tb-fg); }
+      .tb-fg-2 { color: var(--tb-fg-2); }
+      .tb-fg-3 { color: var(--tb-muted); }
+      .tb-hover:hover { background-color: var(--tb-hover); }
+      .tb-hover-fg:hover { color: var(--tb-fg); }
+      .tb-focus:focus { border-color: var(--tb-line-strong); outline: none; }
+      .tb-focus:focus-visible { box-shadow: 0 0 0 3px color-mix(in srgb, var(--stx-accent) 28%, transparent); }
+      .tb-primary { background-color: var(--tb-primary); color: var(--tb-primary-fg); }
+      .tb-primary:hover:not(:disabled) { background-color: color-mix(in srgb, var(--tb-primary) 88%, var(--tb-bg)); }
+      .tb-danger-fg { color: var(--tb-danger); }
+      .tb-warn-fg { color: var(--tb-warn); }
+      .tb-danger-bg { background-color: var(--tb-danger-bg); }
+      .tb-danger-line { border-color: var(--tb-danger-line); }
+      .tb-danger-solid { background-color: var(--tb-danger-solid); color: #ffffff; }
+      .tb-scrim { background-color: var(--tb-scrim); }
+      .tb-dot-ok { background-color: var(--tb-ok); }
+      .tb-dot-warn { background-color: var(--tb-warn); }
+      .tb-dot-info { background-color: var(--tb-info); }
+      .tb-dot-danger { background-color: var(--tb-danger-solid); }
+      .tb-dot-off { background-color: var(--tb-off); }
+      [data-tinkerbelle-theme] :focus-visible { outline: 2px solid color-mix(in srgb, var(--stx-accent) 70%, transparent); outline-offset: 1px; }
+      [data-tinkerbelle-theme] input::placeholder, [data-tinkerbelle-theme] textarea::placeholder { color: var(--tb-muted); }
       .tb-window { background: var(--tb-bg); color: var(--tb-fg); }
 
       /*
@@ -1034,7 +1102,7 @@ void loadUpdate()
       .tb-icon:hover, .tb-status-action:hover { background: var(--tb-hover); color: var(--tb-fg); }
       .tb-icon-on { color: var(--tb-fg); background: var(--tb-hover); }
       .tb-status-action { padding: 0 6px; height: 20px; border-radius: 4px; color: var(--tb-fg); }
-      .tb-problems { color: #d1556a; }
+      .tb-problems { color: var(--tb-danger); }
 
       /* The editor is the window: no frame of its own, and the window's background behind the code. */
       [data-tinkerbelle-editor] [data-stx-code-editor] {
@@ -1042,11 +1110,11 @@ void loadUpdate()
         --stx-code-gutter-fg: color-mix(in srgb, var(--tb-muted) 70%, transparent); --stx-code-gutter-active-fg: var(--tb-fg);
         --stx-code-active-line: var(--tb-hover);
         --stx-code-padding-y: 12px; --stx-code-padding-x: 14px;
-        --stx-code-font: 'Zed Mono', 'JetBrains Mono', 'SF Mono', ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+        --stx-code-font: var(--tb-code-font, 'Zed Mono', 'JetBrains Mono', 'SF Mono', ui-monospace, SFMono-Regular, Menlo, Consolas, monospace);
         --stx-code-font-size: var(--tb-code-size, 13px); --stx-code-line-height: var(--tb-code-line, 22px);
       }
       .tinkerbelle-pane { width: 44%; min-width: 320px; max-width: 760px; background: var(--tb-raised); border-left: 1px solid var(--tb-line); }
-      .tinkerbelle-float { box-shadow: 0 16px 48px -16px rgb(0 0 0 / 0.4), 0 2px 6px -2px rgb(0 0 0 / 0.12); }
+      .tinkerbelle-float { box-shadow: var(--tb-shadow); }
     </style>
   </head>
   <body class="overflow-hidden h-screen antialiased">
@@ -1054,20 +1122,20 @@ void loadUpdate()
     <div class="flex flex-col h-screen tb-window" data-tinkerbelle-app>
       <header class="flex gap-1 items-center shrink-0 tb-bar" data-window-drag data-tinkerbelle-bar>
         <div class="relative shrink-0">
-          <button type="button" class="flex gap-2 items-center px-2 h-7 text-[13px] hover:bg-neutral-200/60 dark:hover:bg-neutral-800/70 rounded-md" aria-haspopup="dialog" :aria-expanded="switcherOpen() ? 'true' : 'false'" :title="'Open a project (' + MOD + '+O)'" @click="switcherOpen.set(!switcherOpen())" data-tinkerbelle-switch>
+          <button type="button" class="flex gap-2 items-center px-2 h-7 text-[13px] rounded-md tb-hover" aria-haspopup="dialog" :aria-expanded="switcherOpen() ? 'true' : 'false'" :title="'Open a project (' + MOD + '+O)'" @click="switcherOpen.set(!switcherOpen())" data-tinkerbelle-switch>
             <span :class="dotClass()" class="h-1.5 w-1.5 rounded-full" aria-hidden="true"></span>
             <span class="font-medium" data-tinkerbelle-target>{{ connecting() ? 'Connecting' : targetLabel() }}</span>
             @if(environmentLabel())
-              <span :class="isProduction() ? 'font-medium text-[11px] text-red-600 dark:text-red-400' : 'text-[11px] text-neutral-400'" data-tinkerbelle-environment>{{ environmentLabel() }}</span>
+              <span :class="isProduction() ? 'font-medium text-[11px] tb-danger-fg ' : 'text-[11px] tb-fg-3'" data-tinkerbelle-environment>{{ environmentLabel() }}</span>
             @endif
-            <span class="inline-block h-3.5 w-3.5 text-neutral-400 i-hugeicons-arrow-down-01" aria-hidden="true"></span>
+            <span class="inline-block h-3.5 w-3.5 i-hugeicons-arrow-down-01 tb-fg-3" aria-hidden="true"></span>
           </button>
 
           @if(switcherOpen())
             <div class="fixed inset-0 z-40" @click="closeSwitcher()" aria-hidden="true"></div>
-            <div class="absolute left-0 top-9 z-50 w-80 bg-white dark:bg-neutral-900 border border-neutral-200 rounded-lg dark:border-neutral-700 tinkerbelle-float" role="dialog" aria-label="Open a project" data-tinkerbelle-switcher>
-              <label class="flex gap-2 items-center px-3 h-10 border-b border-neutral-200/70 dark:border-neutral-800">
-                <span class="inline-block shrink-0 h-4 w-4 text-neutral-400 i-hugeicons-folder-01" aria-hidden="true"></span>
+            <div class="absolute left-0 top-9 z-50 w-80 border rounded-lg tb-line tb-surface tinkerbelle-float" role="dialog" aria-label="Open a project" data-tinkerbelle-switcher>
+              <label class="flex gap-2 items-center px-3 h-10 border-b tb-line">
+                <span class="inline-block shrink-0 h-4 w-4 i-hugeicons-folder-01 tb-fg-3" aria-hidden="true"></span>
                 <input
                   type="text"
                   :value="projectPath()"
@@ -1083,13 +1151,13 @@ void loadUpdate()
                 >
               </label>
               <ul class="py-1 text-[13px]">
-                <li><button type="button" class="flex gap-2.5 items-center px-3 h-8 w-full text-left hover:bg-neutral-100 dark:hover:bg-neutral-800" @click="openSandbox()" data-tinkerbelle-sandbox><span class="inline-block h-4 w-4 text-neutral-400 i-hugeicons-cube" aria-hidden="true"></span>Sandbox<span class="ml-auto text-[11px] text-neutral-400">no project</span></button></li>
+                <li><button type="button" class="flex gap-2.5 items-center px-3 h-8 w-full text-left tb-hover" @click="openSandbox()" data-tinkerbelle-sandbox><span class="inline-block h-4 w-4 i-hugeicons-cube tb-fg-3" aria-hidden="true"></span>Sandbox<span class="ml-auto text-[11px] tb-fg-3">no project</span></button></li>
                 @foreach(recentProjects() as item)
-                  <li><button type="button" class="flex gap-2.5 items-center px-3 h-8 w-full text-left hover:bg-neutral-100 dark:hover:bg-neutral-800" @click="openRecent(item)"><span :class="item.kind === 'local' ? 'i-hugeicons-folder-01' : 'i-hugeicons-cloud-server'" class="inline-block shrink-0 h-4 w-4 text-neutral-400" aria-hidden="true"></span><span class="shrink-0">{{ item.label }}</span><span class="ml-auto min-w-0 font-mono text-[11px] text-neutral-400 truncate">{{ item.path || item.where || '' }}</span></button></li>
+                  <li><button type="button" class="flex gap-2.5 items-center px-3 h-8 w-full text-left tb-hover" @click="openRecent(item)"><span :class="item.kind === 'local' ? 'i-hugeicons-folder-01' : 'i-hugeicons-cloud-server'" class="inline-block shrink-0 h-4 w-4 tb-fg-3" aria-hidden="true"></span><span class="shrink-0">{{ item.label }}</span><span class="ml-auto min-w-0 font-mono text-[11px] truncate tb-fg-3">{{ item.path || item.where || '' }}</span></button></li>
                 @endforeach
               </ul>
-              <div class="py-1 text-[13px] border-neutral-200/70 border-t dark:border-neutral-800">
-                <button type="button" class="flex gap-2.5 items-center px-3 h-8 w-full text-left hover:bg-neutral-100 dark:hover:bg-neutral-800" @click="openRemote()" data-tinkerbelle-remote><span class="inline-block h-4 w-4 text-neutral-400 i-hugeicons-server-stack-01" aria-hidden="true"></span>Server, container or pod</button>
+              <div class="py-1 text-[13px] border-t tb-line">
+                <button type="button" class="flex gap-2.5 items-center px-3 h-8 w-full text-left tb-hover" @click="openRemote()" data-tinkerbelle-remote><span class="inline-block h-4 w-4 i-hugeicons-server-stack-01 tb-fg-3" aria-hidden="true"></span>Server, container or pod</button>
               </div>
             </div>
           @endif
@@ -1097,28 +1165,28 @@ void loadUpdate()
 
         <div class="flex overflow-x-auto flex-1 gap-0.5 items-center px-1 min-w-0" role="tablist" aria-label="Buffers" data-tinkerbelle-tabs>
           @foreach(tabs() as tab)
-            <span :class="tab.id === activeTab() ? 'flex items-center shrink-0 pl-2.5 pr-1 h-7 text-[12px] text-neutral-900 dark:text-neutral-100 bg-neutral-200/70 dark:bg-neutral-800 rounded-md' : 'flex items-center shrink-0 px-2.5 h-7 text-[12px] text-neutral-500 hover:text-neutral-900 dark:hover:text-neutral-100 rounded-md'">
+            <span :class="tab.id === activeTab() ? 'flex items-center shrink-0 pl-2.5 pr-1 h-7 text-[12px] tb-fg tb-fill rounded-md' : 'flex items-center shrink-0 px-2.5 h-7 text-[12px] tb-fg-2 tb-hover-fg rounded-md'">
               <button type="button" role="tab" :aria-selected="tab.id === activeTab() ? 'true' : 'false'" class="max-w-[14rem] font-mono truncate" @click="selectTab(tab.id)">{{ tab.id === activeTab() ? tabTitle({ code: code() }) : tabTitle(tab) }}</button>
               @if(tab.id === activeTab() && tabs().length > 1)
-                <button type="button" class="flex items-center justify-center ml-1 h-5 w-5 text-neutral-400 hover:text-neutral-900 dark:hover:text-neutral-100 rounded" :aria-label="'Close ' + tabTitle(tab)" @click="closeTab(tab.id)"><span class="inline-block h-3 w-3 i-hugeicons-cancel-01" aria-hidden="true"></span></button>
+                <button type="button" class="flex items-center justify-center ml-1 h-5 w-5 rounded tb-fg-3 tb-hover-fg" :aria-label="'Close ' + tabTitle(tab)" @click="closeTab(tab.id)"><span class="inline-block h-3 w-3 i-hugeicons-cancel-01" aria-hidden="true"></span></button>
               @endif
             </span>
           @endforeach
-          <button type="button" class="flex items-center justify-center shrink-0 h-7 w-7 text-neutral-500 hover:text-neutral-900 dark:hover:text-neutral-100 hover:bg-neutral-200/60 dark:hover:bg-neutral-800/70 rounded-md" aria-label="New buffer" :title="'New buffer (' + MOD + '+T)'" @click="newTab()" data-tinkerbelle-new-tab><span class="inline-block h-3.5 w-3.5 i-hugeicons-add-01" aria-hidden="true"></span></button>
+          <button type="button" class="flex items-center justify-center shrink-0 h-7 w-7 rounded-md tb-fg-2 tb-hover tb-hover-fg" aria-label="New buffer" :title="'New buffer (' + MOD + '+T)'" @click="newTab()" data-tinkerbelle-new-tab><span class="inline-block h-3.5 w-3.5 i-hugeicons-add-01" aria-hidden="true"></span></button>
         </div>
 
         <button type="button" class="flex gap-1.5 items-center shrink-0 tb-run" :disabled="running() || !connected()" :title="'Run (' + MOD + '+Enter)'" @click="runAll()" data-tinkerbelle-run><span :class="running() ? 'i-hugeicons-stop' : 'i-hugeicons-play'" class="inline-block h-3.5 w-3.5" aria-hidden="true"></span>{{ running() ? 'Running' : 'Run' }}</button>
       </header>
 
       @if(notice())
-        <p class="flex gap-2 items-center px-3 py-1.5 text-[12px] text-neutral-600 dark:text-neutral-300 border-b border-neutral-200/70 dark:border-neutral-800/70" role="status" data-tinkerbelle-notice><span class="shrink-0 h-1.5 w-1.5 bg-amber-500 rounded-full" aria-hidden="true"></span><span class="flex-1 min-w-0">{{ notice() }}</span><button type="button" class="shrink-0 text-neutral-400 hover:text-neutral-900 dark:hover:text-neutral-100" aria-label="Dismiss" @click="notice.set('')"><span class="inline-block h-3 w-3 i-hugeicons-cancel-01" aria-hidden="true"></span></button></p>
+        <p class="flex gap-2 items-center px-3 py-1.5 text-[12px] border-b tb-fg-2 tb-line" role="status" data-tinkerbelle-notice><span class="shrink-0 h-1.5 w-1.5 rounded-full tb-dot-warn" aria-hidden="true"></span><span class="flex-1 min-w-0">{{ notice() }}</span><button type="button" class="shrink-0 tb-fg-3 tb-hover-fg" aria-label="Dismiss" @click="notice.set('')"><span class="inline-block h-3 w-3 i-hugeicons-cancel-01" aria-hidden="true"></span></button></p>
       @endif
 
       @if(confirming())
-        <div class="flex gap-3 items-center px-3 py-2 text-red-900 text-xs dark:text-red-100 bg-red-50 dark:bg-red-500/15 border-b border-red-200 dark:border-red-500/30" role="alert" data-tinkerbelle-confirm>
+        <div class="flex gap-3 items-center px-3 py-2 text-xs border-b tb-danger-bg tb-danger-fg tb-danger-line" role="alert" data-tinkerbelle-confirm>
           <span class="flex-1">This will run on <strong>{{ environmentLabel() }}</strong> at {{ whereLabel() || targetLabel() }}. Anything it writes is written for real.</span>
-          <button type="button" class="px-2.5 h-6 text-xs bg-white dark:bg-neutral-900 border border-red-300 rounded dark:border-red-500/40" @click="confirming.set('')">Cancel</button>
-          <button type="button" class="px-2.5 h-6 font-medium text-white text-xs bg-red-600 rounded" @click="guarded(confirming())" data-tinkerbelle-confirm-run>Run on {{ environmentLabel() }}</button>
+          <button type="button" class="px-2.5 h-6 text-xs border rounded tb-danger-line tb-surface" @click="confirming.set('')">Cancel</button>
+          <button type="button" class="px-2.5 h-6 font-medium text-xs rounded tb-danger-solid" @click="guarded(confirming())" data-tinkerbelle-confirm-run>Run on {{ environmentLabel() }}</button>
         </div>
       @endif
 
@@ -1137,6 +1205,8 @@ void loadUpdate()
             :hover="ui().hover"
             :signatureHelp="ui().signatureHelp"
             :tabSize="ui().tabSize"
+            :insertSpaces="ui().indentWith !== 'tabs'"
+            :inlineDiagnostics="ui().inlineProblems"
             :lineNumbers="ui().lineNumbers"
             :ghostText="ghost()"
             @selection="onSelection($event)"
@@ -1150,35 +1220,35 @@ void loadUpdate()
         </section>
 
         <aside :class="paneOpen() ? 'flex flex-col shrink-0 min-h-0 tinkerbelle-pane' : 'hidden'" aria-label="Result, log, assistant and connection" data-tinkerbelle-pane>
-          <div class="flex gap-0.5 items-center shrink-0 px-2 h-9 border-b border-neutral-200/70 dark:border-neutral-800/70" role="tablist">
+          <div class="flex gap-0.5 items-center shrink-0 px-2 h-9 border-b tb-line" role="tablist">
             @foreach(PANE_VIEWS as item)
-              <button type="button" role="tab" :aria-selected="view() === item.id ? 'true' : 'false'" :class="view() === item.id ? 'px-2 h-6 text-[12px] font-medium text-neutral-900 dark:text-neutral-100' : 'px-2 h-6 text-[12px] text-neutral-400 hover:text-neutral-700 dark:hover:text-neutral-200'" @click="showView(item.id)" :data-tinkerbelle-view="item.id">{{ item.title }}</button>
+              <button type="button" role="tab" :aria-selected="view() === item.id ? 'true' : 'false'" :class="view() === item.id ? 'px-2 h-6 text-[12px] font-medium tb-fg ' : 'px-2 h-6 text-[12px] tb-fg-3 tb-hover-fg '" @click="showView(item.id)" :data-tinkerbelle-view="item.id">{{ item.title }}</button>
             @endforeach
             @if(view() === 'result' && duration())
-              <span class="ml-auto pr-1 font-mono text-[11px] text-neutral-400">{{ duration() }}</span>
+              <span class="ml-auto pr-1 font-mono text-[11px] tb-fg-3">{{ duration() }}</span>
             @endif
             @if(view() === 'logs')
-              <select :value="logLevel()" @change="logLevel.set($event.target.value)" aria-label="Lowest level to show" class="ml-auto px-1 h-6 text-[11px] text-neutral-500 bg-transparent rounded focus:outline-none">
+              <select :value="logLevel()" @change="logLevel.set($event.target.value)" aria-label="Lowest level to show" class="ml-auto px-1 h-6 text-[11px] bg-transparent rounded focus:outline-none tb-fg-2">
                 <option value="all">All levels</option>
                 <option value="info">Info and up</option>
                 <option value="warning">Warnings and errors</option>
                 <option value="error">Errors</option>
               </select>
-              <input type="text" :value="logQuery()" @input="logQuery.set($event.target.value)" placeholder="Filter" aria-label="Filter log lines" class="px-2 h-6 w-28 text-[11px] bg-neutral-100 dark:bg-neutral-900 rounded focus:outline-none">
-              <span :class="logFollowing() ? 'bg-emerald-500' : 'bg-neutral-300 dark:bg-neutral-600'" class="h-1.5 w-1.5 rounded-full" :title="logFollowing() ? 'Following' : 'Stopped'" data-tinkerbelle-log-state></span>
+              <input type="text" :value="logQuery()" @input="logQuery.set($event.target.value)" placeholder="Filter" aria-label="Filter log lines" class="px-2 h-6 w-28 text-[11px] rounded focus:outline-none tb-fill">
+              <span :class="logFollowing() ? 'tb-dot-ok' : 'tb-dot-off '" class="h-1.5 w-1.5 rounded-full" :title="logFollowing() ? 'Following' : 'Stopped'" data-tinkerbelle-log-state></span>
             @endif
           </div>
 
           @if(view() === 'logs')
             <div class="overflow-y-auto flex-1 p-2 min-h-0 font-mono leading-5 text-[11px]" data-tinkerbelle-logs>
               @if(logNote())
-                <p class="px-1 text-red-700 dark:text-red-300" role="alert">{{ logNote() }}</p>
+                <p class="px-1 tb-danger-fg" role="alert">{{ logNote() }}</p>
               @endif
               @foreach(shownLogs() as line)
-                <div :class="logClass(line.level)" class="flex gap-2 px-1"><span class="shrink-0 text-neutral-400">{{ line.time ? line.time.slice(11, 19) : '' }}</span><span class="shrink-0 w-12 uppercase">{{ line.level }}</span><span class="min-w-0 break-words whitespace-pre-wrap">{{ line.message }}</span></div>
+                <div :class="logClass(line.level)" class="flex gap-2 px-1"><span class="shrink-0 tb-fg-3">{{ line.time ? line.time.slice(11, 19) : '' }}</span><span class="shrink-0 w-12 uppercase">{{ line.level }}</span><span class="min-w-0 break-words whitespace-pre-wrap">{{ line.message }}</span></div>
               @endforeach
               @if(!logNote() && shownLogs().length === 0)
-                <p class="px-1 text-neutral-500">{{ connected() ? 'No lines yet.' : 'Open a project to follow its log.' }}</p>
+                <p class="px-1 tb-fg-2">{{ connected() ? 'No lines yet.' : 'Open a project to follow its log.' }}</p>
               @endif
             </div>
           @endif
@@ -1186,21 +1256,21 @@ void loadUpdate()
           @if(view() === 'info')
             <div class="overflow-y-auto flex-1 p-3 space-y-3 min-h-0" data-tinkerbelle-info>
               @if(!connected())
-                <p class="text-neutral-500 text-sm">Open a project to see what it is running on.</p>
+                <p class="text-sm tb-fg-2">Open a project to see what it is running on.</p>
               @endif
               @if(panelsNote())
-                <p class="text-red-700 text-xs dark:text-red-300" role="alert">{{ panelsNote() }}</p>
+                <p class="text-xs tb-danger-fg" role="alert">{{ panelsNote() }}</p>
               @endif
               @foreach(panels() as panel)
-                <article class="bg-white dark:bg-neutral-900 border border-neutral-200 rounded-lg dark:border-neutral-800">
-                  <h2 class="px-3 py-1.5 font-medium text-xs border-b border-neutral-200 dark:border-neutral-800">{{ panel.title }}</h2>
+                <article class="border rounded-lg tb-line tb-surface">
+                  <h2 class="px-3 py-1.5 font-medium text-xs border-b tb-line">{{ panel.title }}</h2>
                   @foreach(panel.sections as section)
                     @if(section.title)
-                      <h3 class="pt-2 px-3 text-[10px] text-neutral-400 tracking-wide uppercase">{{ section.title }}</h3>
+                      <h3 class="pt-2 px-3 text-[10px] tracking-wide uppercase tb-fg-3">{{ section.title }}</h3>
                     @endif
                     <dl class="px-3 py-1.5">
                       @foreach(section.rows as row)
-                        <div class="flex gap-3 py-0.5 text-xs"><dt class="shrink-0 w-32 text-neutral-500">{{ row[0] }}</dt><dd class="min-w-0 break-words font-mono">{{ row[1] }}</dd></div>
+                        <div class="flex gap-3 py-0.5 text-xs"><dt class="shrink-0 w-32 tb-fg-2">{{ row[0] }}</dt><dd class="min-w-0 break-words font-mono">{{ row[1] }}</dd></div>
                       @endforeach
                     </dl>
                   @endforeach
@@ -1213,48 +1283,48 @@ void loadUpdate()
             <div class="flex flex-1 flex-col min-h-0" data-tinkerbelle-assistant>
               <div class="overflow-y-auto flex-1 p-3 space-y-3 min-h-0">
                 @if(!ai().enabled || !ai().hasKey)
-                  <div class="p-3 text-neutral-600 text-sm dark:text-neutral-300 bg-white dark:bg-neutral-900 border border-neutral-200 rounded-lg dark:border-neutral-800">
+                  <div class="p-3 text-sm border rounded-lg tb-fg-2 tb-line tb-surface">
                     <p>The assistant uses your own API key. It is kept in this computer's keychain. Only your code, your question and the names of your models and columns are sent, never rows of data.</p>
-                    <button type="button" class="mt-3 px-3 h-7 font-medium text-white text-xs dark:text-neutral-900 bg-neutral-900 dark:bg-neutral-100 rounded-md" @click="openSettingsWindow('ai')">Set up AI</button>
+                    <button type="button" class="mt-3 px-3 h-7 font-medium text-xs rounded-md tb-primary" @click="openSettingsWindow('ai')">Set up AI</button>
                   </div>
                 @endif
                 @foreach(chat() as message)
-                  <div :class="message.role === 'user' ? 'ml-8 p-2.5 text-sm bg-neutral-200 dark:bg-neutral-800 rounded-lg' : 'mr-8 p-2.5 text-sm bg-white dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-800 rounded-lg'">
+                  <div :class="message.role === 'user' ? 'ml-8 p-2.5 text-sm tb-fill rounded-lg' : 'mr-8 p-2.5 text-sm tb-surface border tb-line rounded-lg'">
                     <pre class="break-words font-sans whitespace-pre-wrap">{{ message.content }}</pre>
                     @if(message.code)
-                      <button type="button" class="mt-2 px-2.5 h-6 text-xs border border-neutral-300 rounded dark:border-neutral-700" @click="useCode(message.code)">Put this code in the editor</button>
+                      <button type="button" class="mt-2 px-2.5 h-6 text-xs border rounded tb-line" @click="useCode(message.code)">Put this code in the editor</button>
                     @endif
                   </div>
                 @endforeach
                 @if(asking())
-                  <p class="text-neutral-500 text-xs">Thinking</p>
+                  <p class="text-xs tb-fg-2">Thinking</p>
                 @endif
                 @if(chatNote())
-                  <p class="text-red-700 text-xs dark:text-red-300" role="alert">{{ chatNote() }}</p>
+                  <p class="text-xs tb-danger-fg" role="alert">{{ chatNote() }}</p>
                 @endif
               </div>
-              <div class="flex gap-2 p-2 border-neutral-200 border-t dark:border-neutral-800">
-                <input type="text" :value="question()" @input="question.set($event.target.value)" @keydown.enter="ask()" placeholder="Describe what you want the code to do" aria-label="Question for the assistant" class="flex-1 px-2.5 h-8 text-sm bg-white dark:bg-neutral-900 border border-neutral-200 rounded-md dark:border-neutral-800 focus:border-neutral-400 focus:outline-none">
-                <button type="button" class="px-3 h-8 font-medium text-white text-xs dark:text-neutral-900 bg-neutral-900 dark:bg-neutral-100 rounded-md disabled:opacity-40" :disabled="asking()" @click="ask()">Ask</button>
+              <div class="flex gap-2 p-2 border-t tb-line">
+                <input type="text" :value="question()" @input="question.set($event.target.value)" @keydown.enter="ask()" placeholder="Describe what you want the code to do" aria-label="Question for the assistant" class="flex-1 px-2.5 h-8 text-sm border rounded-md focus:outline-none tb-focus tb-line tb-surface">
+                <button type="button" class="px-3 h-8 font-medium text-xs rounded-md disabled:opacity-40 tb-primary" :disabled="asking()" @click="ask()">Ask</button>
               </div>
             </div>
           @endif
 
           <div :class="view() === 'result' ? 'flex flex-col flex-1 min-h-0 overflow-y-auto' : 'hidden'" aria-live="polite">
           @if(!running() && !output() && !result() && !failure() && !queries().length)
-            <p class="m-auto px-6 text-[13px] text-center text-neutral-400">Run with <span class="font-mono">{{ RUN_KEYS }}</span> to see the result here.</p>
+            <p class="m-auto px-6 text-[13px] text-center tb-fg-3">Run with <span class="font-mono">{{ RUN_KEYS }}</span> to see the result here.</p>
           @endif
 
           @if(output())
-            <article class="border-b border-neutral-200/70 dark:border-neutral-800/70" data-tinkerbelle-output>
-              <h2 class="pt-2.5 px-3 text-[10px] text-neutral-400 tracking-wide uppercase">Output</h2>
+            <article class="border-b tb-line" data-tinkerbelle-output>
+              <h2 class="pt-2.5 px-3 text-[10px] tracking-wide uppercase tb-fg-3">Output</h2>
               <pre class="overflow-x-auto p-3 font-mono text-xs whitespace-pre-wrap">{{ output() }}</pre>
             </article>
           @endif
 
           @if(result())
-            <article class="border-b border-neutral-200/70 dark:border-neutral-800/70" data-tinkerbelle-result>
-              <h2 class="flex gap-1 items-center pt-2 px-3 text-[11px] text-neutral-500">
+            <article class="border-b tb-line" data-tinkerbelle-result>
+              <h2 class="flex gap-1 items-center pt-2 px-3 text-[11px] tb-fg-2">
                 @if(inspectable())
                   <button type="button" :class="resultView() === 'tree' ? VIEW_ON : VIEW_OFF" @click="resultView.set('tree')" data-tinkerbelle-view-tree>Inspect</button>
                 @endif
@@ -1280,7 +1350,7 @@ void loadUpdate()
                 <div data-tinkerbelle-table>
                   <DataGrid label="Result rows" fileName="tinkerbelle-result" height="calc(100vh - 9.5rem)" :rows="grid().rows" :columns="grid().columns" />
                   @if(grid().more)
-                    <p class="px-3 py-1.5 text-[11px] text-neutral-400 border-neutral-200 border-t dark:border-neutral-800">{{ grid().more }} more rows were not sent.</p>
+                    <p class="px-3 py-1.5 text-[11px] border-t tb-fg-3 tb-line">{{ grid().more }} more rows were not sent.</p>
                   @endif
                 </div>
               @endif
@@ -1290,7 +1360,7 @@ void loadUpdate()
                   @if(relations().nodes.length)
                     <GraphView id="tinkerbelle-relations" label="Model relations" height="calc(100vh - 9.5rem)" :nodes="relations().nodes" :edges="relations().edges" @expand="expandRelations($event)" />
                   @else
-                    <p class="p-3 text-neutral-500 text-xs dark:text-neutral-400">{{ modelList() ? 'This session lists no relations for that model.' : 'Reading the models...' }}</p>
+                    <p class="p-3 text-xs tb-fg-2">{{ modelList() ? 'This session lists no relations for that model.' : 'Reading the models...' }}</p>
                   @endif
                 </div>
               @endif
@@ -1308,18 +1378,18 @@ void loadUpdate()
           @endif
 
           @if(failure())
-            <article class="bg-red-50/60 dark:bg-red-500/10 border-b border-red-200/70 dark:border-red-500/20" data-tinkerbelle-error>
-              <h2 class="pt-2.5 px-3 text-[10px] text-red-600 tracking-wide uppercase dark:text-red-400">Error</h2>
-              <pre class="overflow-x-auto p-3 font-mono text-red-800 text-xs whitespace-pre-wrap dark:text-red-200">{{ failure() }}</pre>
+            <article class="border-b tb-danger-bg tb-danger-line" data-tinkerbelle-error>
+              <h2 class="pt-2.5 px-3 text-[10px] tracking-wide uppercase tb-danger-fg">Error</h2>
+              <pre class="overflow-x-auto p-3 font-mono text-xs whitespace-pre-wrap tb-danger-fg">{{ failure() }}</pre>
             </article>
           @endif
 
           @if(queries().length)
-            <article class="border-b border-neutral-200/70 dark:border-neutral-800/70" data-tinkerbelle-queries>
-              <h2 class="pt-2.5 px-3 text-[10px] text-neutral-400 tracking-wide uppercase">Queries ({{ queries().length }})</h2>
-              <ul class="divide-neutral-200 divide-y dark:divide-neutral-800">
+            <article class="border-b tb-line" data-tinkerbelle-queries>
+              <h2 class="pt-2.5 px-3 text-[10px] tracking-wide uppercase tb-fg-3">Queries ({{ queries().length }})</h2>
+              <ul class="divide-y tb-divide">
                 @foreach(queries() as query)
-                  <li class="flex gap-3 px-3 py-1.5 font-mono text-xs"><span class="shrink-0 text-neutral-400">{{ query.durationMs }} ms</span><span class="min-w-0 break-words">{{ query.sql }}</span></li>
+                  <li class="flex gap-3 px-3 py-1.5 font-mono text-xs"><span class="shrink-0 tb-fg-3">{{ query.durationMs }} ms</span><span class="min-w-0 break-words">{{ query.sql }}</span></li>
                 @endforeach
               </ul>
             </article>
@@ -1335,9 +1405,9 @@ void loadUpdate()
         <span class="ml-2 min-w-0 font-mono truncate" data-tinkerbelle-where>{{ whereLabel() }}</span>
         <span class="flex-1"></span>
         @if(updateInstalled())
-          <button type="button" class="flex gap-1.5 items-center shrink-0 tb-status-action" @click="restartForUpdate()" data-tinkerbelle-restart><span class="h-1.5 w-1.5 bg-emerald-500 rounded-full" aria-hidden="true"></span>Restart to finish updating</button>
+          <button type="button" class="flex gap-1.5 items-center shrink-0 tb-status-action" @click="restartForUpdate()" data-tinkerbelle-restart><span class="h-1.5 w-1.5 rounded-full tb-dot-ok" aria-hidden="true"></span>Restart to finish updating</button>
         @elseif(updateReady())
-          <button type="button" class="flex gap-1.5 items-center shrink-0 tb-status-action" :disabled="updateBusy()" @click="installUpdate()" data-tinkerbelle-update><span class="h-1.5 w-1.5 bg-sky-500 rounded-full" aria-hidden="true"></span>{{ updateBusy() ? 'Updating' : 'Update to ' + update().version }}</button>
+          <button type="button" class="flex gap-1.5 items-center shrink-0 tb-status-action" :disabled="updateBusy()" @click="installUpdate()" data-tinkerbelle-update><span class="h-1.5 w-1.5 rounded-full tb-dot-info" aria-hidden="true"></span>{{ updateBusy() ? 'Updating' : 'Update to ' + update().version }}</button>
         @endif
         <span class="shrink-0 px-1.5" :class="problems() ? 'tb-problems' : ''" data-tinkerbelle-problems>{{ problems() === 0 ? 'No problems' : problems() === 1 ? '1 problem' : problems() + ' problems' }}</span>
         <span class="shrink-0 px-1.5 font-mono">{{ caretLabel() }}</span>
@@ -1345,90 +1415,90 @@ void loadUpdate()
       </footer>
 
       @if(connectOpen())
-        <div class="flex fixed inset-0 z-40 items-start justify-center pt-16 bg-black/30" @click.self="connectOpen.set(false)" data-tinkerbelle-connect>
-          <div class="max-w-lg w-full bg-white dark:bg-neutral-900 border border-neutral-200 rounded-xl dark:border-neutral-700 tinkerbelle-float" role="dialog" aria-modal="true" aria-label="Connect to a remote target">
-            <div class="flex gap-1 p-2 border-b border-neutral-200 dark:border-neutral-800" role="tablist">
-              <button type="button" role="tab" :aria-selected="connectKind() === 'ssh' ? 'true' : 'false'" :class="connectKind() === 'ssh' ? 'px-3 h-7 text-xs font-medium bg-neutral-100 dark:bg-neutral-800 rounded-md' : 'px-3 h-7 text-xs text-neutral-500 rounded-md'" @click="connectKind.set('ssh'); found.set([])">SSH</button>
-              <button type="button" role="tab" :aria-selected="connectKind() === 'docker' ? 'true' : 'false'" :class="connectKind() === 'docker' ? 'px-3 h-7 text-xs font-medium bg-neutral-100 dark:bg-neutral-800 rounded-md' : 'px-3 h-7 text-xs text-neutral-500 rounded-md'" @click="connectKind.set('docker'); found.set([])">Docker</button>
-              <button type="button" role="tab" :aria-selected="connectKind() === 'kube' ? 'true' : 'false'" :class="connectKind() === 'kube' ? 'px-3 h-7 text-xs font-medium bg-neutral-100 dark:bg-neutral-800 rounded-md' : 'px-3 h-7 text-xs text-neutral-500 rounded-md'" @click="connectKind.set('kube'); found.set([])">Kubernetes</button>
+        <div class="flex fixed inset-0 z-40 items-start justify-center pt-16 tb-scrim" @click.self="connectOpen.set(false)" data-tinkerbelle-connect>
+          <div class="max-w-lg w-full border rounded-xl tb-line tb-surface tinkerbelle-float" role="dialog" aria-modal="true" aria-label="Connect to a remote target">
+            <div class="flex gap-1 p-2 border-b tb-line" role="tablist">
+              <button type="button" role="tab" :aria-selected="connectKind() === 'ssh' ? 'true' : 'false'" :class="connectKind() === 'ssh' ? 'px-3 h-7 text-xs font-medium tb-fill rounded-md' : 'px-3 h-7 text-xs tb-fg-2 rounded-md'" @click="connectKind.set('ssh'); found.set([])">SSH</button>
+              <button type="button" role="tab" :aria-selected="connectKind() === 'docker' ? 'true' : 'false'" :class="connectKind() === 'docker' ? 'px-3 h-7 text-xs font-medium tb-fill rounded-md' : 'px-3 h-7 text-xs tb-fg-2 rounded-md'" @click="connectKind.set('docker'); found.set([])">Docker</button>
+              <button type="button" role="tab" :aria-selected="connectKind() === 'kube' ? 'true' : 'false'" :class="connectKind() === 'kube' ? 'px-3 h-7 text-xs font-medium tb-fill rounded-md' : 'px-3 h-7 text-xs tb-fg-2 rounded-md'" @click="connectKind.set('kube'); found.set([])">Kubernetes</button>
             </div>
             <div class="pt-3 px-4" data-tinkerbelle-boxes>
               <div class="flex gap-2 items-center">
-                <button type="button" class="px-2.5 h-7 text-xs border border-neutral-200 rounded-md dark:border-neutral-700 disabled:opacity-50" :disabled="boxesLoading()" @click="loadBoxes()">{{ boxesLoading() ? 'Asking the project' : 'Servers this project is deployed to' }}</button>
-                <span class="min-w-0 text-[11px] text-neutral-500 truncate">{{ boxesNote() }}</span>
+                <button type="button" class="px-2.5 h-7 text-xs border rounded-md disabled:opacity-50 tb-line" :disabled="boxesLoading()" @click="loadBoxes()">{{ boxesLoading() ? 'Asking the project' : 'Servers this project is deployed to' }}</button>
+                <span class="min-w-0 text-[11px] truncate tb-fg-2">{{ boxesNote() }}</span>
               </div>
               @if(boxes().length)
-                <ul class="mt-2 border border-neutral-200 divide-neutral-200 divide-y rounded-md dark:border-neutral-700 dark:divide-neutral-800">
+                <ul class="mt-2 border divide-y rounded-md tb-divide tb-line">
                   @foreach(boxes() as box)
-                    <li class="flex gap-3 items-baseline px-3 py-1.5 text-xs hover:bg-neutral-100 dark:hover:bg-neutral-800 cursor-default" @click="connectBox(box)"><span class="font-medium">{{ box.title }}</span><span class="ml-auto min-w-0 font-mono text-[11px] text-neutral-400 truncate">{{ box.connection.directory }}</span></li>
+                    <li class="flex gap-3 items-baseline px-3 py-1.5 text-xs cursor-default tb-hover" @click="connectBox(box)"><span class="font-medium">{{ box.title }}</span><span class="ml-auto min-w-0 font-mono text-[11px] truncate tb-fg-3">{{ box.connection.directory }}</span></li>
                   @endforeach
                 </ul>
               @endif
             </div>
             <div class="grid gap-3 grid-cols-2 p-4">
               @if(connectKind() === 'ssh')
-              <label class="flex flex-col gap-1 text-[11px] text-neutral-500">Host
-                <input type="text" :value="form().host" @input="setField('host', $event.target.value)" placeholder="box.example.com" autocomplete="off" spellcheck="false" class="px-2 h-8 font-mono text-neutral-900 text-xs dark:text-neutral-100 bg-white dark:bg-neutral-950 border border-neutral-200 rounded-md dark:border-neutral-700 focus:border-neutral-400 focus:outline-none">
+              <label class="flex flex-col gap-1 text-[11px] tb-fg-2">Host
+                <input type="text" :value="form().host" @input="setField('host', $event.target.value)" placeholder="box.example.com" autocomplete="off" spellcheck="false" class="px-2 h-8 font-mono text-xs border rounded-md focus:outline-none tb-fg tb-focus tb-line tb-surface">
               </label>
-              <label class="flex flex-col gap-1 text-[11px] text-neutral-500">User
-                <input type="text" :value="form().user" @input="setField('user', $event.target.value)" placeholder="root" autocomplete="off" spellcheck="false" class="px-2 h-8 font-mono text-neutral-900 text-xs dark:text-neutral-100 bg-white dark:bg-neutral-950 border border-neutral-200 rounded-md dark:border-neutral-700 focus:border-neutral-400 focus:outline-none">
+              <label class="flex flex-col gap-1 text-[11px] tb-fg-2">User
+                <input type="text" :value="form().user" @input="setField('user', $event.target.value)" placeholder="root" autocomplete="off" spellcheck="false" class="px-2 h-8 font-mono text-xs border rounded-md focus:outline-none tb-fg tb-focus tb-line tb-surface">
               </label>
-              <label class="flex flex-col gap-1 text-[11px] text-neutral-500">Port
-                <input type="text" :value="form().port" @input="setField('port', $event.target.value)" placeholder="22" autocomplete="off" spellcheck="false" class="px-2 h-8 font-mono text-neutral-900 text-xs dark:text-neutral-100 bg-white dark:bg-neutral-950 border border-neutral-200 rounded-md dark:border-neutral-700 focus:border-neutral-400 focus:outline-none">
+              <label class="flex flex-col gap-1 text-[11px] tb-fg-2">Port
+                <input type="text" :value="form().port" @input="setField('port', $event.target.value)" placeholder="22" autocomplete="off" spellcheck="false" class="px-2 h-8 font-mono text-xs border rounded-md focus:outline-none tb-fg tb-focus tb-line tb-surface">
               </label>
-              <label class="flex flex-col gap-1 text-[11px] text-neutral-500">Jump host (optional)
-                <input type="text" :value="form().jump" @input="setField('jump', $event.target.value)" placeholder="me@bastion" autocomplete="off" spellcheck="false" class="px-2 h-8 font-mono text-neutral-900 text-xs dark:text-neutral-100 bg-white dark:bg-neutral-950 border border-neutral-200 rounded-md dark:border-neutral-700 focus:border-neutral-400 focus:outline-none">
+              <label class="flex flex-col gap-1 text-[11px] tb-fg-2">Jump host (optional)
+                <input type="text" :value="form().jump" @input="setField('jump', $event.target.value)" placeholder="me@bastion" autocomplete="off" spellcheck="false" class="px-2 h-8 font-mono text-xs border rounded-md focus:outline-none tb-fg tb-focus tb-line tb-surface">
               </label>
-              <label class="flex flex-col gap-1 text-[11px] text-neutral-500" style="grid-column: span 2">Identity file (optional)
-                <input type="text" :value="form().identityFile" @input="setField('identityFile', $event.target.value)" placeholder="/Users/me/.ssh/id_ed25519" autocomplete="off" spellcheck="false" class="px-2 h-8 font-mono text-neutral-900 text-xs dark:text-neutral-100 bg-white dark:bg-neutral-950 border border-neutral-200 rounded-md dark:border-neutral-700 focus:border-neutral-400 focus:outline-none">
+              <label class="flex flex-col gap-1 text-[11px] tb-fg-2" style="grid-column: span 2">Identity file (optional)
+                <input type="text" :value="form().identityFile" @input="setField('identityFile', $event.target.value)" placeholder="/Users/me/.ssh/id_ed25519" autocomplete="off" spellcheck="false" class="px-2 h-8 font-mono text-xs border rounded-md focus:outline-none tb-fg tb-focus tb-line tb-surface">
               </label>
               @endif
               @if(connectKind() === 'kube')
-              <label class="flex flex-col gap-1 text-[11px] text-neutral-500">Context (optional)
-                <input type="text" :value="form().context" @input="setField('context', $event.target.value)" placeholder="current context" autocomplete="off" spellcheck="false" class="px-2 h-8 font-mono text-neutral-900 text-xs dark:text-neutral-100 bg-white dark:bg-neutral-950 border border-neutral-200 rounded-md dark:border-neutral-700 focus:border-neutral-400 focus:outline-none">
+              <label class="flex flex-col gap-1 text-[11px] tb-fg-2">Context (optional)
+                <input type="text" :value="form().context" @input="setField('context', $event.target.value)" placeholder="current context" autocomplete="off" spellcheck="false" class="px-2 h-8 font-mono text-xs border rounded-md focus:outline-none tb-fg tb-focus tb-line tb-surface">
               </label>
-              <label class="flex flex-col gap-1 text-[11px] text-neutral-500">Namespace
-                <input type="text" :value="form().namespace" @input="setField('namespace', $event.target.value)" placeholder="default" autocomplete="off" spellcheck="false" class="px-2 h-8 font-mono text-neutral-900 text-xs dark:text-neutral-100 bg-white dark:bg-neutral-950 border border-neutral-200 rounded-md dark:border-neutral-700 focus:border-neutral-400 focus:outline-none">
+              <label class="flex flex-col gap-1 text-[11px] tb-fg-2">Namespace
+                <input type="text" :value="form().namespace" @input="setField('namespace', $event.target.value)" placeholder="default" autocomplete="off" spellcheck="false" class="px-2 h-8 font-mono text-xs border rounded-md focus:outline-none tb-fg tb-focus tb-line tb-surface">
               </label>
               @endif
               @if(connectKind() !== 'docker')
-              <label class="flex flex-col gap-1 text-[11px] text-neutral-500">Pod
-                <input type="text" :value="form().pod" @input="setField('pod', $event.target.value)" placeholder="api-0" autocomplete="off" spellcheck="false" class="px-2 h-8 font-mono text-neutral-900 text-xs dark:text-neutral-100 bg-white dark:bg-neutral-950 border border-neutral-200 rounded-md dark:border-neutral-700 focus:border-neutral-400 focus:outline-none">
+              <label class="flex flex-col gap-1 text-[11px] tb-fg-2">Pod
+                <input type="text" :value="form().pod" @input="setField('pod', $event.target.value)" placeholder="api-0" autocomplete="off" spellcheck="false" class="px-2 h-8 font-mono text-xs border rounded-md focus:outline-none tb-fg tb-focus tb-line tb-surface">
               </label>
               @endif
-              <label class="flex flex-col gap-1 text-[11px] text-neutral-500">Container
-                <input type="text" :value="form().container" @input="setField('container', $event.target.value)" placeholder="web-1" autocomplete="off" spellcheck="false" class="px-2 h-8 font-mono text-neutral-900 text-xs dark:text-neutral-100 bg-white dark:bg-neutral-950 border border-neutral-200 rounded-md dark:border-neutral-700 focus:border-neutral-400 focus:outline-none">
+              <label class="flex flex-col gap-1 text-[11px] tb-fg-2">Container
+                <input type="text" :value="form().container" @input="setField('container', $event.target.value)" placeholder="web-1" autocomplete="off" spellcheck="false" class="px-2 h-8 font-mono text-xs border rounded-md focus:outline-none tb-fg tb-focus tb-line tb-surface">
               </label>
-              <label class="flex flex-col gap-1 text-[11px] text-neutral-500" style="grid-column: span 2">Project directory on the target
-                <input type="text" :value="form().directory" @input="setField('directory', $event.target.value)" placeholder="/var/www/app/current" autocomplete="off" spellcheck="false" class="px-2 h-8 font-mono text-neutral-900 text-xs dark:text-neutral-100 bg-white dark:bg-neutral-950 border border-neutral-200 rounded-md dark:border-neutral-700 focus:border-neutral-400 focus:outline-none">
+              <label class="flex flex-col gap-1 text-[11px] tb-fg-2" style="grid-column: span 2">Project directory on the target
+                <input type="text" :value="form().directory" @input="setField('directory', $event.target.value)" placeholder="/var/www/app/current" autocomplete="off" spellcheck="false" class="px-2 h-8 font-mono text-xs border rounded-md focus:outline-none tb-fg tb-focus tb-line tb-surface">
               </label>
-              <label class="flex flex-col gap-1 text-[11px] text-neutral-500">Env file to export (optional)
-                <input type="text" :value="form().envFile" @input="setField('envFile', $event.target.value)" placeholder=".env" autocomplete="off" spellcheck="false" class="px-2 h-8 font-mono text-neutral-900 text-xs dark:text-neutral-100 bg-white dark:bg-neutral-950 border border-neutral-200 rounded-md dark:border-neutral-700 focus:border-neutral-400 focus:outline-none">
+              <label class="flex flex-col gap-1 text-[11px] tb-fg-2">Env file to export (optional)
+                <input type="text" :value="form().envFile" @input="setField('envFile', $event.target.value)" placeholder=".env" autocomplete="off" spellcheck="false" class="px-2 h-8 font-mono text-xs border rounded-md focus:outline-none tb-fg tb-focus tb-line tb-surface">
               </label>
               <div class="flex flex-wrap gap-2 items-end">
-                <button type="button" class="px-2.5 h-8 text-xs border border-neutral-200 rounded-md dark:border-neutral-700 disabled:opacity-50" :disabled="finding()" @click="discover('containers')">List containers</button>
-                <button type="button" class="px-2.5 h-8 text-xs border border-neutral-200 rounded-md dark:border-neutral-700 disabled:opacity-50" :disabled="finding()" @click="discover('pods')">List pods</button>
+                <button type="button" class="px-2.5 h-8 text-xs border rounded-md disabled:opacity-50 tb-line" :disabled="finding()" @click="discover('containers')">List containers</button>
+                <button type="button" class="px-2.5 h-8 text-xs border rounded-md disabled:opacity-50 tb-line" :disabled="finding()" @click="discover('pods')">List pods</button>
               </div>
             </div>
             @if(found().length)
-              <ul class="overflow-y-auto mb-3 mx-4 max-h-40 border border-neutral-200 divide-neutral-200 divide-y rounded-md dark:border-neutral-700 dark:divide-neutral-800" data-tinkerbelle-found>
+              <ul class="overflow-y-auto mb-3 mx-4 max-h-40 border divide-y rounded-md tb-divide tb-line" data-tinkerbelle-found>
                 @foreach(found() as item)
-                  <li class="flex gap-3 px-3 py-1.5 font-mono text-xs hover:bg-neutral-100 dark:hover:bg-neutral-800 cursor-default" @click="pick(item)"><span>{{ item.value }}</span><span class="ml-auto text-neutral-400 truncate">{{ item.hint }}</span></li>
+                  <li class="flex gap-3 px-3 py-1.5 font-mono text-xs cursor-default tb-hover" @click="pick(item)"><span>{{ item.value }}</span><span class="ml-auto truncate tb-fg-3">{{ item.hint }}</span></li>
                 @endforeach
               </ul>
             @endif
-            <p class="pb-3 px-4 text-[11px] text-neutral-500">Keys come from your SSH agent. TinkerBelle never asks for a password and writes nothing on the target.</p>
-            <div class="flex gap-2 justify-end px-4 py-3 border-neutral-200 border-t dark:border-neutral-800">
-              <button type="button" class="px-3 h-8 text-xs border border-neutral-200 rounded-md dark:border-neutral-700" @click="connectOpen.set(false)">Cancel</button>
-              <button type="button" class="px-3 h-8 font-medium text-white text-xs dark:text-neutral-900 bg-neutral-900 dark:bg-neutral-100 rounded-md disabled:opacity-50" :disabled="connecting()" @click="connectRemote()" data-tinkerbelle-connect-go>{{ connecting() ? 'Connecting' : 'Connect' }}</button>
+            <p class="pb-3 px-4 text-[11px] tb-fg-2">Keys come from your SSH agent. TinkerBelle never asks for a password and writes nothing on the target.</p>
+            <div class="flex gap-2 justify-end px-4 py-3 border-t tb-line">
+              <button type="button" class="px-3 h-8 text-xs border rounded-md tb-line" @click="connectOpen.set(false)">Cancel</button>
+              <button type="button" class="px-3 h-8 font-medium text-xs rounded-md disabled:opacity-50 tb-primary" :disabled="connecting()" @click="connectRemote()" data-tinkerbelle-connect-go>{{ connecting() ? 'Connecting' : 'Connect' }}</button>
             </div>
           </div>
         </div>
       @endif
 
       @if(paletteOpen())
-        <div class="flex fixed inset-0 z-40 items-start justify-center pt-24 bg-black/30" @click.self="closePalette()" data-tinkerbelle-palette>
-          <div class="overflow-hidden max-w-xl w-full bg-white dark:bg-neutral-900 border border-neutral-200 rounded-xl dark:border-neutral-700 tinkerbelle-float" role="dialog" aria-modal="true" aria-label="Command palette">
+        <div class="flex fixed inset-0 z-40 items-start justify-center pt-24 tb-scrim" @click.self="closePalette()" data-tinkerbelle-palette>
+          <div class="overflow-hidden max-w-xl w-full border rounded-xl tb-line tb-surface tinkerbelle-float" role="dialog" aria-modal="true" aria-label="Command palette">
             <input
               ref="paletteInput"
               type="text"
@@ -1440,26 +1510,26 @@ void loadUpdate()
               :value="paletteQuery()"
               @input="paletteQuery.set($event.target.value); paletteActive.set(0)"
               @keydown="paletteKey($event)"
-              class="px-4 h-12 w-full text-sm bg-transparent border-b border-neutral-200 dark:border-neutral-800 focus:outline-none"
+              class="px-4 h-12 w-full text-sm bg-transparent border-b focus:outline-none tb-line"
             >
             <ul id="tinkerbelle-palette-list" role="listbox" class="overflow-y-auto py-1 max-h-96">
               @foreach(paletteItems() as item, index)
                 <li
                   role="option"
                   :aria-selected="index === paletteActive() ? 'true' : 'false'"
-                  :class="index === paletteActive() ? 'flex gap-3 items-baseline px-4 py-2 cursor-default bg-neutral-100 dark:bg-neutral-800' : 'flex gap-3 items-baseline px-4 py-2 cursor-default'"
+                  :class="index === paletteActive() ? 'flex gap-3 items-baseline px-4 py-2 cursor-default tb-fill ' : 'flex gap-3 items-baseline px-4 py-2 cursor-default'"
                   @click="choose(item)"
                   @mousemove="paletteActive.set(index)"
                 >
                   @if(item.kind !== 'action')
-                    <span :class="PALETTE_ICONS[item.kind] || 'i-hugeicons-folder-01'" class="inline-block self-center shrink-0 h-4 w-4 text-neutral-400" aria-hidden="true"></span>
+                    <span :class="PALETTE_ICONS[item.kind] || 'i-hugeicons-folder-01'" class="inline-block self-center shrink-0 h-4 w-4 tb-fg-3" aria-hidden="true"></span>
                   @endif
                   <span :class="item.kind === 'snippet' || item.kind === 'history' ? 'min-w-0 font-mono text-xs truncate' : 'min-w-0 text-[13px] truncate'">{{ item.title }}</span>
-                  <span class="ml-auto min-w-0 text-[11px] text-neutral-400 truncate">{{ item.hint }}</span>
+                  <span class="ml-auto min-w-0 text-[11px] truncate tb-fg-3">{{ item.hint }}</span>
                 </li>
               @endforeach
               @if(paletteItems().length === 0)
-                <li class="px-4 py-3 text-neutral-500 text-sm">Nothing matches.</li>
+                <li class="px-4 py-3 text-sm tb-fg-2">Nothing matches.</li>
               @endif
             </ul>
           </div>

@@ -1,13 +1,14 @@
 <script client>
 import { componentApi } from '@stacksjs/components/component-api'
-import { announceChange, announcePreferences, onPreferences, restartToFinishUpdate } from '../functions/desktop-bridge'
+import { CODE_FONTS, DEFAULT_PREFERENCES, editorStyle } from '../../app/TinkerBelle/preferences'
+import { announceChange, announcePreferences, onPreferences, openExternal, restartToFinishUpdate, shortcutKeys } from '../functions/desktop-bridge'
 
 // The Settings window. It is a window of its own, opened by Cmd+, from the
 // editor: what is changed here is kept by the agent and told to the editor as
 // it changes, so the two never have to be reconciled.
 
 const pane = state('general')
-const prefs = state({ theme: 'system', startup: 'sandbox', fontSize: 13, tabSize: 2, lineNumbers: true, completions: true, hover: true, signatureHelp: true, openPaneOnRun: true })
+const prefs = state({ ...DEFAULT_PREFERENCES })
 const note = state('')
 
 const systemDark = useMediaQuery('(prefers-color-scheme: dark)')
@@ -34,7 +35,25 @@ async function setPref(name, value) {
 }
 
 const STARTUP = [{ value: 'sandbox', label: 'The sandbox' }, { value: 'last', label: 'The last project' }, { value: 'nothing', label: 'Nothing' }]
-const INDENT = [{ value: '2', label: '2 spaces' }, { value: '4', label: '4 spaces' }, { value: '8', label: '8 spaces' }]
+const INDENT = [{ value: '2', label: '2' }, { value: '4', label: '4' }, { value: '8', label: '8' }]
+const INDENT_WITH = [{ value: 'spaces', label: 'Spaces' }, { value: 'tabs', label: 'Tabs' }]
+const LINE_HEIGHT = [{ value: 'compact', label: 'Compact' }, { value: 'normal', label: 'Normal' }, { value: 'relaxed', label: 'Relaxed' }]
+// A face that is not installed falls back to the system's, so each is named for what it asks for.
+const FONTS = [{ value: 'default', label: 'TinkerBelle default' }, { value: 'sf-mono', label: 'SF Mono' }, { value: 'menlo', label: 'Menlo' }, { value: 'jetbrains-mono', label: 'JetBrains Mono' }, { value: 'fira-code', label: 'Fira Code' }]
+// The sample under the text settings is drawn with exactly what the editor will use.
+const sampleStyle = derived(() => `${editorStyle(prefs())}; font-family: ${CODE_FONTS[prefs().codeFont] || CODE_FONTS.default}; tab-size: ${prefs().tabSize}`)
+const SAMPLE = `const people = await User.where('active', true).get()\n\nfor (const person of people) {\n${'\t'}console.log(person.name)\n}`
+const sample = derived(() => prefs().indentWith === 'tabs' ? SAMPLE : SAMPLE.replaceAll('\t', ' '.repeat(prefs().tabSize)))
+
+// The keys a shortcut is shown with on this computer: signs on a Mac, names elsewhere.
+const keys = list => shortcutKeys(list)
+const MOD = keys(['mod'])[0]
+const ALT = keys(['alt'])[0]
+const SHIFT = keys(['shift'])[0]
+const ENTER = keys(['enter'])[0]
+const TAB = keys(['tab'])[0]
+const SUGGEST_HINT = `Otherwise only when asked with ${ALT} \\.`
+
 
 // ---------- AI ----------
 const ai = state({ enabled: false, provider: 'anthropic', model: '', host: '', automatic: false, hasKey: false })
@@ -93,9 +112,26 @@ async function setMcp(enabled) {
 }
 
 const mcpConfig = derived(() => JSON.stringify({ mcpServers: { tinkerbelle: { type: 'http', url: mcp().address, headers: { Authorization: `Bearer ${mcp().token || 'the token shown when this was turned on'}` } } } }, null, 2))
+const copied = state(false)
+
+async function copyMcpConfig() {
+  try {
+    await navigator.clipboard.writeText(mcpConfig())
+    copied.set(true)
+    setTimeout(() => copied.set(false), 1600)
+  }
+  catch {
+    copied.set(false)
+  }
+}
 
 // ---------- License ----------
-const license = state({ pro: false, source: 'none', standing: null, version: '', buildDate: '' })
+const license = state({ pro: false, source: 'none', standing: null, version: '', buildDate: '', site: '' })
+const planName = derived(() => license().source === 'license' ? 'Pro' : license().source === 'beta' ? 'Beta' : 'Free')
+// A page of the app's website, in the browser. The address comes from the build, so a renamed site needs no change here.
+function openSite(path) {
+  if (license().site) void openExternal(license().site + path)
+}
 const licenseKey = state('')
 const licenseNote = state('')
 const licenseBusy = state(false)
@@ -158,12 +194,14 @@ const updateNote = state('')
 const updateReady = derived(() => update().state === 'available' && Boolean(update().version))
 const updateInstalled = derived(() => update().state === 'installed')
 const updateWork = state('Checking')
+const updateChecked = state('')
+const appVersion = derived(() => update().currentVersion || license().version || '')
 const updateStatus = derived(() => {
   const now = update()
   if (updateBusy()) return updateWork()
   if (now.state === 'installed') return `Version ${now.version || ''} is installed. Restart TinkerBelle to use it.`.replace('  ', ' ')
   if (now.state === 'available' && now.version) return `Version ${now.version} is available.`
-  if (now.state === 'current') return 'This is the newest version.'
+  if (now.state === 'current') return updateChecked() ? `This is the newest version. Checked at ${updateChecked()}.` : 'This is the newest version.'
   if (now.state === 'installing') return 'Installing'
   if (now.state === 'error' || now.state === 'refused') return now.error || now.message || 'The last check did not finish.'
   return now.currentVersion ? 'Checked when the app starts and once a day.' : 'Updates are checked by the installed app. This copy is running from source.'
@@ -180,7 +218,10 @@ async function checkForUpdate() {
   updateNote.set('')
   try {
     const response = await fetch('/__desktop/update', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ action: 'check' }) }).catch(() => null)
-    if (response && response.ok) update.set(await response.json())
+    if (response && response.ok) {
+      update.set(await response.json())
+      updateChecked.set(new Date().toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' }))
+    }
   }
   finally {
     updateBusy.set(false)
@@ -248,8 +289,35 @@ void loadUpdate()
       html, body { height: 100%; margin: 0; overflow: hidden; background: transparent; }
       /* The accent is left as the system's: a Settings window that recolours its selection stops looking like one. */
       [data-tinkerbelle-settings] { height: 100vh; }
-      .tb-config { margin: 0; padding: 10px 12px; overflow-x: auto; font: 11px/1.5 ui-monospace, SFMono-Regular, Menlo, monospace; border-radius: 6px; background: color-mix(in srgb, currentColor 6%, transparent); white-space: pre; }
+      .tb-config { margin: 0; padding: 10px 12px; overflow-x: auto; font: 11px/1.5 ui-monospace, SFMono-Regular, Menlo, monospace; border-radius: 6px; background: color-mix(in srgb, currentColor 6%, transparent); user-select: text; -webkit-user-select: text; }
       .tb-quiet { color: color-mix(in srgb, currentColor 60%, transparent); font-size: 12px; }
+      .tb-figure { margin-right: 10px; font-variant-numeric: tabular-nums; white-space: nowrap; }
+      /* The preview is a piece of the editor: its colours are the editor window's, in whichever mode the window is. */
+      .tb-sample {
+        margin: 0; padding: 10px 12px; overflow-x: auto; border-radius: 6px;
+        font-size: var(--tb-code-size, 13px); line-height: var(--tb-code-line, 22px);
+        background: #fbfbfa; color: #1f2328; box-shadow: inset 0 0 0 0.5px rgb(0 0 0 / 0.14);
+      }
+      .dark .tb-sample { background: #23262c; color: #dcdfe4; box-shadow: inset 0 0 0 0.5px rgb(255 255 255 / 0.12); }
+      .tb-keys { display: inline-flex; gap: 4px; align-items: center; }
+      .tb-key {
+        min-width: 22px; height: 22px; padding: 0 6px; display: inline-flex; align-items: center; justify-content: center;
+        font: 500 12px/1 -apple-system, BlinkMacSystemFont, 'SF Pro Text', 'Segoe UI', system-ui, sans-serif;
+        border-radius: 5px; color: inherit;
+        background: color-mix(in srgb, currentColor 8%, transparent);
+        box-shadow: inset 0 0 0 0.5px color-mix(in srgb, currentColor 22%, transparent), 0 0.5px 0 color-mix(in srgb, currentColor 18%, transparent);
+      }
+      .tb-badge {
+        padding: 2px 8px; border-radius: 999px; font-size: 11px; font-weight: 600; letter-spacing: 0.01em;
+        color: color-mix(in srgb, currentColor 70%, transparent); background: color-mix(in srgb, currentColor 9%, transparent);
+      }
+      .tb-badge[data-plan="Pro"] { color: #8a5a00; background: rgb(242 185 75 / 0.28); }
+      .dark .tb-badge[data-plan="Pro"] { color: #f2b94b; background: rgb(242 185 75 / 0.16); }
+      .tb-about { display: flex; flex-direction: column; align-items: center; gap: 2px; padding: 18px 16px 22px; text-align: center; }
+      .tb-about svg { margin-bottom: 10px; filter: drop-shadow(0 6px 14px rgb(0 0 0 / 0.22)); }
+      .tb-about-name { margin: 0; font-size: 20px; font-weight: 700; letter-spacing: -0.01em; }
+      .tb-about-version { margin: 0; font-size: 12px; color: color-mix(in srgb, currentColor 60%, transparent); font-variant-numeric: tabular-nums; }
+      .tb-about-line { margin: 8px 0 0; font-size: 12px; color: color-mix(in srgb, currentColor 60%, transparent); }
     </style>
   </head>
   <body>
@@ -259,6 +327,7 @@ void loadUpdate()
           <SettingsSidebarGroup>
             <SettingsSidebarItem id="general" label="General" icon="i-f7-gear-alt-fill" tone="grey" />
             <SettingsSidebarItem id="editor" label="Editor" icon="i-f7-chevron-left-slash-chevron-right" tone="blue" />
+            <SettingsSidebarItem id="shortcuts" label="Keyboard Shortcuts" icon="i-f7-keyboard" tone="ink" />
           </SettingsSidebarGroup>
           <SettingsSidebarGroup>
             <SettingsSidebarItem id="ai" label="AI" icon="i-f7-sparkles" tone="purple" />
@@ -266,21 +335,23 @@ void loadUpdate()
           </SettingsSidebarGroup>
           <SettingsSidebarGroup>
             <SettingsSidebarItem id="license" label="License" icon="i-f7-checkmark-seal-fill" tone="orange" />
-            <SettingsSidebarItem id="updates" label="Software Update" icon="i-f7-arrow-down-circle-fill" tone="grey" />
+            <SettingsSidebarItem id="updates" label="Software Update" icon="i-f7-arrow-down-circle-fill" tone="green" />
             <SettingsSidebarItem id="about" label="About" icon="i-f7-info-circle-fill" tone="grey" />
           </SettingsSidebarGroup>
         </template>
 
         <SettingsPane id="general" title="General" active>
-          <SettingsGroup header="Appearance">
-            <SettingsRow label="Appearance" setting="appearance" keywords="theme light dark mode" multiline>
+          <SettingsGroup footer="Auto follows this computer, and changes with it at sunset if the computer does.">
+            <SettingsRow label="Appearance" setting="appearance" keywords="theme light dark mode auto system" multiline>
               <AppearancePicker :value="appearance()" label="Appearance" @change="setPref('theme', $event === 'auto' ? 'system' : $event)" />
             </SettingsRow>
           </SettingsGroup>
-          <SettingsGroup header="Window" footer="The sandbox is a TypeScript session with no project behind it.">
+          <SettingsGroup header="Startup" footer="The sandbox is a TypeScript session with no project behind it.">
             <SettingsRow label="When TinkerBelle opens, connect to" setting="startup" keywords="launch start sandbox project">
               <Select variant="mac" :value="prefs().startup" placeholder="" :options="STARTUP" @change="setPref('startup', $event)" />
             </SettingsRow>
+          </SettingsGroup>
+          <SettingsGroup header="Results">
             <SettingsRow label="Show the result when code is run" description="Opens the side pane on every run." setting="open-pane" keywords="result pane side output">
               <Switch variant="mac" :checked="prefs().openPaneOnRun" @change="setPref('openPaneOnRun', $event)" />
             </SettingsRow>
@@ -289,15 +360,29 @@ void loadUpdate()
 
         <SettingsPane id="editor" title="Editor">
           <SettingsGroup header="Text">
-            <SettingsRow label="Code size" setting="font-size" keywords="font text larger smaller zoom">
-              <span class="tb-quiet" style="margin-right: 10px; font-variant-numeric: tabular-nums">{{ prefs().fontSize }} px</span>
-              <Slider :value="prefs().fontSize" min="10" max="22" step="1" label="Code size" minIcon="i-f7-textformat-size-smaller" maxIcon="i-f7-textformat-size-larger" @change="setPref('fontSize', $event)" />
+            <SettingsRow label="Typeface" setting="code-font" keywords="font family monospace menlo jetbrains fira sf mono">
+              <Select variant="mac" :value="prefs().codeFont" placeholder="" :options="FONTS" @change="setPref('codeFont', $event)" />
             </SettingsRow>
-            <SettingsRow label="Indent" setting="indent" keywords="tab spaces width">
-              <Select variant="mac" :value="String(prefs().tabSize)" placeholder="" :options="INDENT" @change="setPref('tabSize', Number($event))" />
+            <SettingsRow label="Size" setting="font-size" keywords="font text larger smaller zoom code size">
+              <span class="tb-figure tb-quiet">{{ prefs().fontSize }} px</span>
+              <Slider :value="prefs().fontSize" min="10" max="22" step="1" label="Code size" minIcon="i-f7-textformat-size-smaller" maxIcon="i-f7-textformat-size-larger" @change="setPref('fontSize', Number($event))" />
+            </SettingsRow>
+            <SettingsRow label="Line spacing" setting="line-height" keywords="line height leading compact relaxed">
+              <SegmentedControl variant="mac" :value="prefs().lineHeight" label="Line spacing" :options="LINE_HEIGHT" @change="setPref('lineHeight', $event)" />
             </SettingsRow>
             <SettingsRow label="Line numbers" setting="line-numbers" keywords="gutter">
               <Switch variant="mac" :checked="prefs().lineNumbers" @change="setPref('lineNumbers', $event)" />
+            </SettingsRow>
+            <SettingsRow label="Preview" layout="stacked">
+              <pre class="tb-sample" :style="sampleStyle()" aria-label="How code will look" data-tinkerbelle-sample>{{ sample() }}</pre>
+            </SettingsRow>
+          </SettingsGroup>
+          <SettingsGroup header="Indentation">
+            <SettingsRow label="Indent using" setting="indent-with" keywords="tab tabs spaces">
+              <SegmentedControl variant="mac" :value="prefs().indentWith" label="Indent using" :options="INDENT_WITH" @change="setPref('indentWith', $event)" />
+            </SettingsRow>
+            <SettingsRow label="Width" description="Columns per level." setting="indent" keywords="tab spaces width size">
+              <SegmentedControl variant="mac" :value="String(prefs().tabSize)" label="Indent width" :options="INDENT" @change="setPref('tabSize', Number($event))" />
             </SettingsRow>
           </SettingsGroup>
           <SettingsGroup header="Type hints" footer="Hints come from the project's own TypeScript server, so they know your models, actions and config.">
@@ -311,31 +396,60 @@ void loadUpdate()
               <Switch variant="mac" :checked="prefs().signatureHelp" @change="setPref('signatureHelp', $event)" />
             </SettingsRow>
           </SettingsGroup>
+          <SettingsGroup header="Problems">
+            <SettingsRow label="Say each problem beside its line" description="Off leaves the underline and the mark in the gutter." setting="inline-problems" keywords="errors diagnostics warnings squiggle inline">
+              <Switch variant="mac" :checked="prefs().inlineProblems" @change="setPref('inlineProblems', $event)" />
+            </SettingsRow>
+          </SettingsGroup>
+        </SettingsPane>
+
+        <SettingsPane id="shortcuts" title="Keyboard Shortcuts">
+          <SettingsGroup header="Run">
+            <SettingsRow label="Run the code" keywords="shortcut key keyboard"><span class="tb-keys"><kbd class="tb-key">{{ MOD }}</kbd><kbd class="tb-key">{{ ENTER }}</kbd></span></SettingsRow>
+            <SettingsRow label="Run the selection" keywords="shortcut key keyboard"><span class="tb-keys"><kbd class="tb-key">{{ MOD }}</kbd><kbd class="tb-key">{{ SHIFT }}</kbd><kbd class="tb-key">{{ ENTER }}</kbd></span></SettingsRow>
+          </SettingsGroup>
+          <SettingsGroup header="Window">
+            <SettingsRow label="Commands, projects, snippets and history" keywords="shortcut key keyboard"><span class="tb-keys"><kbd class="tb-key">{{ MOD }}</kbd><kbd class="tb-key">{{ 'K' }}</kbd></span></SettingsRow>
+            <SettingsRow label="Open a project" keywords="shortcut key keyboard"><span class="tb-keys"><kbd class="tb-key">{{ MOD }}</kbd><kbd class="tb-key">{{ 'O' }}</kbd></span></SettingsRow>
+            <SettingsRow label="New buffer" keywords="shortcut key keyboard"><span class="tb-keys"><kbd class="tb-key">{{ MOD }}</kbd><kbd class="tb-key">{{ 'T' }}</kbd></span></SettingsRow>
+            <SettingsRow label="Show or hide the side pane" keywords="shortcut key keyboard"><span class="tb-keys"><kbd class="tb-key">{{ MOD }}</kbd><kbd class="tb-key">{{ 'J' }}</kbd></span></SettingsRow>
+            <SettingsRow label="Settings" keywords="shortcut key keyboard"><span class="tb-keys"><kbd class="tb-key">{{ MOD }}</kbd><kbd class="tb-key">{{ ',' }}</kbd></span></SettingsRow>
+          </SettingsGroup>
+          <SettingsGroup header="Editing">
+            <SettingsRow label="Suggest completions" keywords="shortcut key keyboard"><span class="tb-keys"><kbd class="tb-key">{{ 'Ctrl' }}</kbd><kbd class="tb-key">{{ 'Space' }}</kbd></span></SettingsRow>
+            <SettingsRow label="Show what the word at the cursor is" keywords="shortcut key keyboard"><span class="tb-keys"><kbd class="tb-key">{{ MOD }}</kbd><kbd class="tb-key">{{ 'I' }}</kbd></span></SettingsRow>
+            <SettingsRow label="Show the parameters of a call" keywords="shortcut key keyboard"><span class="tb-keys"><kbd class="tb-key">{{ MOD }}</kbd><kbd class="tb-key">{{ SHIFT }}</kbd><kbd class="tb-key">{{ 'Space' }}</kbd></span></SettingsRow>
+            <SettingsRow label="Ask AI for a suggestion" keywords="shortcut key keyboard"><span class="tb-keys"><kbd class="tb-key">{{ ALT }}</kbd><kbd class="tb-key">\</kbd></span></SettingsRow>
+            <SettingsRow label="Take a suggestion" keywords="shortcut key keyboard"><span class="tb-keys"><kbd class="tb-key">{{ TAB }}</kbd></span></SettingsRow>
+            <SettingsRow label="Comment or uncomment the line" keywords="shortcut key keyboard"><span class="tb-keys"><kbd class="tb-key">{{ MOD }}</kbd><kbd class="tb-key">{{ '/' }}</kbd></span></SettingsRow>
+            <SettingsRow label="Undo" keywords="shortcut key keyboard"><span class="tb-keys"><kbd class="tb-key">{{ MOD }}</kbd><kbd class="tb-key">{{ 'Z' }}</kbd></span></SettingsRow>
+            <SettingsRow label="Redo" keywords="shortcut key keyboard"><span class="tb-keys"><kbd class="tb-key">{{ MOD }}</kbd><kbd class="tb-key">{{ SHIFT }}</kbd><kbd class="tb-key">{{ 'Z' }}</kbd></span></SettingsRow>
+          </SettingsGroup>
         </SettingsPane>
 
         <SettingsPane id="ai" title="AI">
-          <SettingsGroup footer="Requests carry your code, your question and the names of your models and columns. Rows of data are never sent.">
-            <SettingsRow label="Use AI in TinkerBelle" setting="ai-enabled" keywords="assistant suggestions">
+          <SettingsGroup header="Assistant" footer="Requests carry your code, your question and the names of your models and columns. Rows of data are never sent.">
+            <SettingsRow label="Use AI in TinkerBelle" description="Suggestions as you type, and an assistant in the side pane." setting="ai-enabled" keywords="assistant suggestions">
               <Switch variant="mac" :checked="ai().enabled" @change="setAi('enabled', $event)" />
             </SettingsRow>
-            <SettingsRow label="Provider" setting="ai-provider" keywords="anthropic openai ollama">
+            <SettingsRow label="Provider" setting="ai-provider" keywords="anthropic openai ollama" :disabled="!ai().enabled">
               <Select variant="mac" :value="ai().provider" placeholder="" :options="PROVIDERS" :disabled="!ai().enabled" @change="setAi('provider', $event)" />
             </SettingsRow>
-            <SettingsRow label="Model" description="Leave empty for the provider's fast model." setting="ai-model">
+            <SettingsRow label="Model" description="Leave empty for the provider's fast model." setting="ai-model" :disabled="!ai().enabled">
               <TextInput variant="mac" :value="ai().model" placeholder="Default" :disabled="!ai().enabled" @blur="setAi('model', $event.target.value)" />
             </SettingsRow>
             @if(ai().provider === 'ollama')
-              <SettingsRow label="Ollama address" setting="ai-host">
+              <SettingsRow label="Ollama address" setting="ai-host" :disabled="!ai().enabled">
                 <TextInput variant="mac" :value="ai().host" placeholder="http://127.0.0.1:11434" :disabled="!ai().enabled" @blur="setAi('host', $event.target.value)" />
               </SettingsRow>
             @endif
-            <SettingsRow label="Suggest after a pause" description="Otherwise only when asked with Alt+Backslash." setting="ai-automatic" keywords="ghost inline">
+            <SettingsRow label="Suggest after a pause" :description="SUGGEST_HINT" setting="ai-automatic" keywords="ghost inline" :disabled="!ai().enabled">
               <Switch variant="mac" :checked="ai().automatic" :disabled="!ai().enabled" @change="setAi('automatic', $event)" />
             </SettingsRow>
           </SettingsGroup>
           @if(ai().provider !== 'ollama')
             <SettingsGroup header="API key" footer="Kept in this computer's keychain and never shown again.">
-              <SettingsRow :label="ai().hasKey ? 'A key is saved' : 'No key yet'" :description="ai().hasKey ? 'Type a new one to replace it.' : 'Bring your own from the provider.'" setting="ai-key" keywords="token secret" layout="stacked">
+              <SettingsRow :label="ai().hasKey ? 'A key is saved' : 'No key yet'" :description="ai().hasKey ? 'Type a new one to replace it.' : 'Bring your own from the provider.'" setting="ai-key" keywords="api key secret token" layout="stacked">
                 <div class="flex gap-2 items-center">
                   <div class="flex-1 min-w-0"><PasswordInput variant="mac" :value="aiKey()" placeholder="Paste a key" @input="aiKey.set($event)" /></div>
                   <Button appearance="mac" variant="primary" :disabled="aiBusy() || !aiKey().trim()" @click="saveKey()">Save</Button>
@@ -351,8 +465,9 @@ void loadUpdate()
         </SettingsPane>
 
         <SettingsPane id="tools" title="AI Tools">
+          <SettingsPaneHeader icon="i-f7-link" tone="indigo" title="AI Tools" description="Let an AI tool that speaks MCP, such as Claude or Cursor, run code in the connections you have opened." />
           <SettingsGroup footer="Works while TinkerBelle is open. A production connection is refused unless the tool is told to confirm it. Turning this on makes a new token and ends the old one.">
-            <SettingsRow label="Let AI tools run code through TinkerBelle" description="For tools that speak MCP, such as Claude or Cursor, in the connections you have opened." setting="mcp" keywords="mcp claude cursor agent">
+            <SettingsRow label="Let AI tools run code through TinkerBelle" setting="mcp" keywords="mcp claude cursor model context protocol">
               <Switch variant="mac" :checked="mcp().enabled" @change="setMcp($event)" />
             </SettingsRow>
           </SettingsGroup>
@@ -361,13 +476,21 @@ void loadUpdate()
               <SettingsRow label="Configuration" layout="stacked">
                 <pre class="tb-config" data-tinkerbelle-mcp-config>{{ mcpConfig() }}</pre>
               </SettingsRow>
+              <SettingsRow label="Copy the configuration">
+                <Button appearance="mac" @click="copyMcpConfig()">{{ copied() ? 'Copied' : 'Copy' }}</Button>
+              </SettingsRow>
             </SettingsGroup>
           @endif
         </SettingsPane>
 
         <SettingsPane id="license" title="License">
           <SettingsGroup>
-            <SettingsRow label="This copy" :description="licenseSummary()" setting="license-status" multiline></SettingsRow>
+            <SettingsRow label="This copy" :description="licenseSummary()" setting="license-status" multiline>
+              <span class="tb-badge" :data-plan="planName()">{{ planName() }}</span>
+            </SettingsRow>
+            <SettingsRow label="Plans and pricing" description="Opens the website." keywords="buy purchase upgrade pro price">
+              <Button appearance="mac" @click="openSite('/pricing')">See Plans</Button>
+            </SettingsRow>
           </SettingsGroup>
           <SettingsGroup header="License key" footer="A license covers two devices. Local projects and the sandbox are free.">
             <SettingsRow label="Activate on this device" setting="license-key" keywords="activate pro purchase" layout="stacked">
@@ -392,7 +515,7 @@ void loadUpdate()
 
         <SettingsPane id="updates" title="Software Update">
           <SettingsGroup>
-            <SettingsRow :label="'TinkerBelle ' + (update().currentVersion || license().version || '')" :description="updateStatus()" setting="update" keywords="version upgrade new" multiline>
+            <SettingsRow :label="'TinkerBelle ' + appVersion()" :description="updateStatus()" icon="i-f7-arrow-down-circle-fill" tone="green" setting="update" keywords="version upgrade new" multiline>
               @if(updateInstalled())
                 <Button appearance="mac" variant="primary" @click="restartForUpdate()" data-tinkerbelle-restart>Restart Now</Button>
               @elseif(updateReady())
@@ -405,14 +528,39 @@ void loadUpdate()
               <SettingsRow :label="updateNote()" multiline></SettingsRow>
             @endif
           </SettingsGroup>
+          <SettingsGroup footer="An update is checked against the app's own signing key before it is installed.">
+            <SettingsRow label="Automatic checks" description="When the app starts, and once a day while it is open." keywords="automatic background daily"></SettingsRow>
+            <SettingsRow label="What's new" description="Every release and what changed in it." keywords="changelog release notes">
+              <Button appearance="mac" @click="openSite('/changelog')">Release Notes</Button>
+            </SettingsRow>
+          </SettingsGroup>
         </SettingsPane>
 
         <SettingsPane id="about" title="About">
-          <SettingsPaneHeader icon="i-f7-bell-fill" tone="orange" title="TinkerBelle" description="Run TypeScript against your real app, here or on a server." />
+          <header class="tb-about" data-tinkerbelle-about>
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="100 100 824 824" width="64" height="64" aria-hidden="true">
+              <rect x="100" y="100" width="824" height="824" rx="186" fill="#17171a"/>
+              <rect x="100.5" y="100.5" width="823" height="823" rx="185.5" fill="none" stroke="#ffffff" stroke-opacity="0.1"/>
+              <g transform="translate(512 512) rotate(-8) scale(27) translate(-12 -12.2)">
+                <path fill="#f2b94b" d="M12 2.75c-3.75 0-6.4 2.86-6.4 6.75v3.3c0 1.2-.47 2.13-1.4 3.03-.72.7-.25 1.92.76 1.92h14.08c1.01 0 1.48-1.22.76-1.92-.93-.9-1.4-1.83-1.4-3.03V9.5c0-3.89-2.65-6.75-6.4-6.75Z"/>
+                <path fill="none" stroke="#17171a" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" d="m10.1 8.3 3 2.75-3 2.75"/>
+                <rect fill="#f2b94b" x="9.9" y="19.3" width="4.2" height="2" rx="1"/>
+              </g>
+            </svg>
+            <h2 class="tb-about-name">TinkerBelle</h2>
+            <p class="tb-about-version">Version {{ appVersion() || 'from source' }}</p>
+            <p class="tb-about-line">Run TypeScript against your real app, here or on a server.</p>
+          </header>
           <SettingsGroup>
-            <SettingsRow label="Version"><span class="tb-quiet">{{ update().currentVersion || license().version || 'running from source' }}</span></SettingsRow>
-            <SettingsRow label="Built"><span class="tb-quiet">{{ license().buildDate || '' }}</span></SettingsRow>
-            <SettingsRow label="License"><span class="tb-quiet">{{ license().source === 'license' ? 'Pro' : license().source === 'beta' ? 'Beta' : 'Free' }}</span></SettingsRow>
+            <SettingsRow label="Released"><span class="tb-figure tb-quiet">{{ license().buildDate || '' }}</span></SettingsRow>
+            <SettingsRow label="License" to="license" :value="planName()"></SettingsRow>
+            <SettingsRow label="Software Update" to="updates"></SettingsRow>
+          </SettingsGroup>
+          <SettingsGroup footer="Built with Stacks, stx and Craft.">
+            <SettingsRow label="Website"><Button appearance="mac" @click="openSite('/')">Open</Button></SettingsRow>
+            <SettingsRow label="Release notes"><Button appearance="mac" @click="openSite('/changelog')">Open</Button></SettingsRow>
+            <SettingsRow label="Privacy"><Button appearance="mac" @click="openSite('/privacy')">Open</Button></SettingsRow>
+            <SettingsRow label="Terms"><Button appearance="mac" @click="openSite('/terms')">Open</Button></SettingsRow>
           </SettingsGroup>
         </SettingsPane>
       </SettingsWindow>

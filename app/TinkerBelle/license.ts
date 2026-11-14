@@ -3,7 +3,7 @@ import type { ProFeature } from './build'
 import type { Store } from './store'
 import { hostname } from 'node:os'
 import process from 'node:process'
-import { BUILD_DATE, LICENSE_ENDPOINT, LICENSE_PUBLIC_KEYS, PRO_FEATURES, PRO_OPEN_BETA, VERSION } from './build'
+import { BUILD_DATE, LICENSE_ENDPOINT, LICENSE_PUBLIC_KEYS, PRO_FEATURES, PRO_OPEN_BETA, SITE, VERSION } from './build'
 
 /**
  * Whether Pro features are unlocked on this machine, and the license behind it.
@@ -34,6 +34,8 @@ export interface Entitlements {
   standing: Standing | null
   version: string
   buildDate: string
+  /** The app's website, where its changelog, pricing and legal pages are. */
+  site: string
 }
 
 interface LicenseClient {
@@ -110,7 +112,7 @@ export class Licensing {
   async entitlements(fresh = false): Promise<Entitlements> {
     if (!fresh && this.cached && Date.now() - this.cached.at < 60_000)
       return this.cached.value
-    const base = { version: VERSION, buildDate: this.options.buildDate ?? BUILD_DATE }
+    const base = { version: VERSION, buildDate: this.options.buildDate ?? BUILD_DATE, site: SITE }
     const client = await this.load()
     let standing: Standing | null = null
     if (client) {

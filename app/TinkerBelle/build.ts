@@ -16,12 +16,15 @@ export const VERSION: string = project.version
  */
 export const BUILD_DATE = '2026-11-12'
 
+/** The app's own website, for the links in Settings: its changelog, pricing and legal pages. Worked out at build time, like the license routes. */
+export const SITE: string = productionOrigin()
+
 /**
  * The license routes of the hosted site. The address is worked out when the
  * app is built (a macro), from APP_URL like every other: a compiled app has no
  * project around it to ask.
  */
-export const LICENSE_ENDPOINT = `${productionOrigin()}/licenses`
+export const LICENSE_ENDPOINT = `${SITE}/licenses`
 
 /**
  * Key id to public key: the trust root for license tokens. Empty until the
