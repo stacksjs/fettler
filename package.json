@@ -65,10 +65,10 @@
   },
   "dependencies": {
     "@stacksjs/stx": "0.2.871",
-    "stacks": "^0.75.571",
-    "@stacksjs/env": "^0.75.571",
-    "@stacksjs/path": "^0.75.571",
-    "@stacksjs/actions": "^0.75.571"
+    "stacks": "^0.75.584",
+    "@stacksjs/env": "^0.75.584",
+    "@stacksjs/path": "^0.75.584",
+    "@stacksjs/actions": "^0.75.584"
   },
   "workspaces": [
     "storage/framework",
@@ -86,7 +86,7 @@
   "devDependencies": {
     "@actions/expressions": "0.3.61",
     "@stacksjs/components": "0.2.871",
-    "better-dx": "^0.2.37",
+    "better-dx": "^0.2.40",
     "bun-plugin-stx": "0.2.871"
   },
   "overrides": {
